@@ -29,12 +29,17 @@ export async function updateCommentStream(options: UpdateOptions): Promise<void>
   
   if (isPartial) {
     // For streaming updates, show content as it arrives
-    formattedContent = `**Claude is responding...**\n\n${content}`;
+    // Make sure we have some content
+    if (!content || content.trim() === "") {
+      formattedContent = "**Claude is responding...**";
+    } else {
+      formattedContent = `**Claude is responding...**\n\n${content}`;
+    }
   } else {
     // For final update, add status indicator
     const statusText = status === "success" ? "[COMPLETED]" : status === "error" ? "[FAILED]" : "[TIMED OUT]";
     
-    formattedContent = `## Claude Response ${statusText}\n\n${content}\n\n---\n*Status: ${status}*`;
+    formattedContent = `## Claude Response ${statusText}\n\n${content || "No response generated"}\n\n---\n*Status: ${status}*`;
   }
   
   // Try to post to Bitbucket

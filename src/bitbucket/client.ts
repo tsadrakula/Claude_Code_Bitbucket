@@ -123,11 +123,17 @@ export class BitbucketClient {
    */
   async createPullRequestComment(pullRequestId: number, content: string) {
     try {
+      // Ensure content is not empty
+      if (!content || content.trim() === "") {
+        content = "Processing...";
+      }
+      
       const { data } = await this.client.pullrequests.createComment({
         workspace: this.config.workspace,
         repo_slug: this.config.repoSlug,
         pull_request_id: pullRequestId,
         _body: {
+          type: "pullrequest_comment",
           content: {
             raw: content,
             markup: "markdown",
@@ -135,8 +141,23 @@ export class BitbucketClient {
         } as any,
       });
       return data;
-    } catch (error) {
-      logger.warning(`Failed to create PR comment:`, error);
+    } catch (error: any) {
+      // Log more details about the error
+      if (error.error?.error?.message) {
+        logger.warning(`Failed to create PR comment: ${error.error.error.message}`);
+      } else {
+        logger.warning(`Failed to create PR comment:`, error);
+      }
+      
+      // Log the body we tried to send for debugging
+      logger.debug("Attempted to send body:", JSON.stringify({
+        type: "pullrequest_comment",
+        content: {
+          raw: content,
+          markup: "markdown"
+        }
+      }));
+      
       return null;
     }
   }
