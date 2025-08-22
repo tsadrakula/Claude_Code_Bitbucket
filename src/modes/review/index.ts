@@ -93,7 +93,7 @@ export class ReviewMode implements Mode {
     }
 
     // Build prompt from available environment data
-    const prompt = `
+    let prompt = `
 # Pull Request Review
 
 **Title:** ${context.pullRequest.title}

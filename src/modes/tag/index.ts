@@ -23,6 +23,8 @@ export class TagMode implements Mode {
     blockedTools?: string[];
     triggerSource?: "description" | "comment" | "commit";
     commentId?: any;
+    inlineContext?: { path: string; from: number | null; to: number | null };
+    parentCommentId?: string;
   }> {
     logger.info("Preparing tag mode context...");
 

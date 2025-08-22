@@ -4,7 +4,6 @@ import { join } from "path";
 import { tmpdir, homedir } from "os";
 import type { PipeConfig, BitbucketContext, ClaudeResult, ConversationTurn } from "../types/config";
 import { logger } from "../utils/logger";
-import { createMcpServers } from "../mcp/servers";
 import { updateCommentStream } from "../bitbucket/comment-stream";
 
 interface RunOptions {
@@ -67,10 +66,9 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     
     // MCP servers are not working with Claude CLI yet, skip for now
     // TODO: Fix MCP server configuration format for Claude CLI
-    const mcpConfigFile: string | undefined = undefined;
     
     // Build Claude command arguments (include prompt as argument)
-    const args = buildClaudeArgs(config, prompt, mcpConfigFile);
+    const args = buildClaudeArgs(config, prompt);
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
     logger.info(`Full command: claude ${args.join(" ")}`);
@@ -223,7 +221,11 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
                     role: "assistant",
                     content: `Using tool: ${content.name}`,
                     timestamp: new Date().toISOString(),
-                    tools: [content]
+                    tools: [{
+                      name: content.name || "unknown",
+                      input: content.input || {},
+                      output: null
+                    }]
                   });
                 }
               }
@@ -389,7 +391,7 @@ function prepareEnvironment(config: PipeConfig): Record<string, string> {
   return env;
 }
 
-function buildClaudeArgs(config: PipeConfig, prompt: string, mcpConfigFile?: string): string[] {
+function buildClaudeArgs(config: PipeConfig, prompt: string): string[] {
   const args: string[] = [
     "-p", // Print mode (non-interactive)
     "--verbose", // Required when using stream-json with -p

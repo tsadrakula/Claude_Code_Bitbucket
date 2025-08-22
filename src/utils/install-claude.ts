@@ -1,5 +1,4 @@
 import { execSync } from "child_process";
-import { existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { logger } from "./logger";
@@ -24,7 +23,7 @@ export async function ensureClaudeCLI(): Promise<void> {
     try {
       execSync("curl -fsSL https://claude.ai/install.sh | bash -s 1.0.88", {
         stdio: "inherit",
-        shell: true
+        shell: "/bin/bash"
       });
       
       // Expand ~ to actual home directory and add to PATH

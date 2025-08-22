@@ -84,7 +84,7 @@ export class BitbucketSourceAPI {
   ): Promise<{ commit?: string; error?: string }> {
     try {
       // First, get the current file to check if it exists
-      const currentContent = await this.getFileContent(branch, path);
+      await this.getFileContent(branch, path);
       
       // Prepare the form data for the API
       const formData = new FormData();
@@ -169,7 +169,7 @@ export class BitbucketSourceAPI {
       });
 
       if (data.values && data.values.length > 0) {
-        return data.values[0].hash;
+        return data.values[0].hash ?? null;
       }
       
       return null;
