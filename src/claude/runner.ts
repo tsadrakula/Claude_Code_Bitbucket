@@ -4,6 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import type { PipeConfig, BitbucketContext, ClaudeResult, ConversationTurn } from "../types/config";
 import { logger } from "../utils/logger";
+import { createMcpServers } from "../mcp/servers";
 
 interface RunOptions {
   config: PipeConfig;
@@ -38,6 +39,14 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     
     // Prepare environment variables
     const env = prepareEnvironment(config);
+    
+    // Set up MCP servers for Bitbucket operations
+    const mcpServers = createMcpServers(config);
+    if (mcpServers.length > 0) {
+      logger.info("MCP servers configured for Bitbucket operations");
+      // Add MCP server configuration to environment
+      env.MCP_SERVERS = JSON.stringify(mcpServers);
+    }
     
     // Build Claude Code command
     const args = buildClaudeCommand(config, contextFile, tempDir);
