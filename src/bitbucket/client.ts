@@ -128,7 +128,6 @@ export class BitbucketClient {
         repo_slug: this.config.repoSlug,
         pull_request_id: pullRequestId,
         _body: {
-          type: "pullrequest_comment",
           content: {
             raw: content,
             markup: "markdown",
@@ -194,7 +193,6 @@ export class BitbucketClient {
         workspace: this.config.workspace,
         repo_slug: this.config.repoSlug,
         _body: {
-          type: "pullrequest",
           title,
           description,
           source: {

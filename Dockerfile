@@ -13,8 +13,9 @@ RUN apk add --no-cache \
     nodejs \
     npm
 
-# Install Claude Code CLI globally
-RUN npm install -g claude-code
+# Install Claude CLI using official installation script
+RUN curl -fsSL https://claude.ai/install.sh | bash -s 1.0.88
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Set working directory
 WORKDIR /pipe

@@ -1,41 +1,47 @@
-import { execa } from "execa";
-import { writeFile, readFile, mkdtemp, rm } from "fs/promises";
+import { spawn } from "child_process";
+import { writeFile, mkdtemp, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import type { PipeConfig, BitbucketContext, ClaudeResult, ConversationTurn } from "../types/config";
 import { logger } from "../utils/logger";
 import { createMcpServers } from "../mcp/servers";
+import { updateCommentStream } from "../bitbucket/comment-stream";
 
 interface RunOptions {
   config: PipeConfig;
   context: BitbucketContext;
   prompt: string;
+  prId?: number;
+  commentId?: string;
+}
+
+interface StreamEvent {
+  type: string;
+  data?: any;
+  content?: string;
+  tool?: any;
 }
 
 export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> {
-  const { config, prompt } = options;
+  const { config, prompt, prId, commentId } = options;
   const startTime = Date.now();
   
   logger.group("Running Claude Code");
   
+  let tempDir: string | null = null;
+  const turns: ConversationTurn[] = [];
+  let currentContent = "";
+  let status: "success" | "error" | "timeout" = "success";
+  let error: string | undefined;
+  
   try {
     // Create temporary directory for execution
-    const tempDir = await mkdtemp(join(tmpdir(), "claude-"));
+    tempDir = await mkdtemp(join(tmpdir(), "claude-"));
     logger.debug(`Created temp directory: ${tempDir}`);
     
-    // Write context files
-    const contextFile = join(tempDir, "context.md");
-    await writeFile(contextFile, prompt);
-    
-    // Write configuration file for Claude Code
-    const configFile = join(tempDir, "claude-config.json");
-    const claudeConfig = {
-      model: config.model,
-      maxTurns: config.maxTurns,
-      allowedTools: config.allowedTools,
-      blockedTools: config.blockedTools,
-    };
-    await writeFile(configFile, JSON.stringify(claudeConfig, null, 2));
+    // Write prompt to file
+    const promptFile = join(tempDir, "prompt.md");
+    await writeFile(promptFile, prompt);
     
     // Prepare environment variables
     const env = prepareEnvironment(config);
@@ -44,119 +50,224 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     const mcpServers = createMcpServers(config);
     if (mcpServers.length > 0) {
       logger.info("MCP servers configured for Bitbucket operations");
-      // Add MCP server configuration to environment
-      env.MCP_SERVERS = JSON.stringify(mcpServers);
+      // Write MCP config to file
+      const mcpConfigFile = join(tempDir, "mcp-config.json");
+      await writeFile(mcpConfigFile, JSON.stringify({ servers: mcpServers }, null, 2));
+      env.MCP_CONFIG_FILE = mcpConfigFile;
     }
     
-    // Build Claude Code command
-    const args = buildClaudeCommand(config, contextFile, tempDir);
+    // Build Claude command arguments
+    const args = buildClaudeArgs(config, mcpServers.length > 0 ? join(tempDir, "mcp-config.json") : undefined);
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
-    logger.debug(`Command: npx claude-code ${args.join(" ")}`);
+    logger.debug(`Command: claude ${args.join(" ")}`);
     
-    // Execute Claude Code CLI
-    const result = await execa("npx", ["claude-code", ...args], {
+    // Post initial comment if we have PR access
+    if (prId && config.bitbucketAccessToken) {
+      await updateCommentStream({
+        config,
+        prId,
+        commentId,
+        content: "🤖 Claude is responding...\n\n",
+        isPartial: true
+      });
+    }
+    
+    // Spawn Claude process
+    const claudeProcess = spawn("claude", args, {
       env,
       cwd: process.cwd(),
-      timeout: config.timeoutMinutes * 60 * 1000,
-      reject: false,
-      preferLocal: false,
+      stdio: ["pipe", "pipe", "inherit"]
     });
     
-    // Parse execution results
-    const turns = await parseExecutionResults(tempDir);
+    // Set timeout
+    const timeout = setTimeout(() => {
+      logger.error("Claude Code execution timed out");
+      claudeProcess.kill("SIGTERM");
+      status = "timeout";
+      error = `Execution timed out after ${config.timeoutMinutes} minutes`;
+    }, config.timeoutMinutes * 60 * 1000);
     
-    // Clean up temp directory
-    await rm(tempDir, { recursive: true, force: true });
+    // Handle stdout for streaming JSON
+    let buffer = "";
+    claudeProcess.stdout.on("data", async (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        
+        try {
+          const event: StreamEvent = JSON.parse(line);
+          
+          // Handle different event types
+          if (event.type === "message" && event.content) {
+            currentContent += event.content;
+            
+            // Update PR comment with partial content
+            if (prId && config.bitbucketAccessToken) {
+              await updateCommentStream({
+                config,
+                prId,
+                commentId,
+                content: currentContent,
+                isPartial: true
+              });
+            }
+          } else if (event.type === "tool_use") {
+            // Log tool usage
+            logger.info(`Tool used: ${event.tool?.name || "unknown"}`);
+            
+            // Add to conversation turns
+            turns.push({
+              role: "assistant",
+              content: `Using tool: ${event.tool?.name}`,
+              timestamp: new Date().toISOString(),
+              tools: [event.tool]
+            });
+          } else if (event.type === "completion") {
+            // Final completion
+            if (event.data?.content) {
+              currentContent = event.data.content;
+            }
+          }
+        } catch (e) {
+          // Not JSON, might be regular output
+          if (config.verbose) {
+            logger.debug("Non-JSON output:", line);
+          }
+        }
+      }
+    });
+    
+    // Send prompt file to stdin
+    claudeProcess.stdin.write(await readFile(promptFile));
+    claudeProcess.stdin.end();
+    
+    // Wait for process to complete
+    await new Promise<void>((resolve, reject) => {
+      claudeProcess.on("exit", (code) => {
+        clearTimeout(timeout);
+        
+        if (code === 0) {
+          logger.success("Claude Code completed successfully");
+          resolve();
+        } else if (status === "timeout") {
+          resolve(); // Already handled
+        } else {
+          status = "error";
+          error = `Claude exited with code ${code}`;
+          resolve();
+        }
+      });
+      
+      claudeProcess.on("error", (err) => {
+        clearTimeout(timeout);
+        logger.error("Claude process error:", err);
+        status = "error";
+        error = err.message;
+        reject(err);
+      });
+    });
+    
+    // Add final turn
+    if (currentContent) {
+      turns.push({
+        role: "assistant",
+        content: currentContent,
+        timestamp: new Date().toISOString(),
+        tools: []
+      });
+    }
     
     const executionTime = Date.now() - startTime;
     
-    if (result.exitCode === 0) {
-      logger.success(`Claude Code completed successfully in ${executionTime}ms`);
-      return {
-        turns,
-        status: "success",
-        executionTime,
-        executionFile: join(tempDir, "execution.json"),
-      };
-    } else {
-      logger.error(`Claude Code failed with exit code ${result.exitCode}`);
-      return {
-        turns,
-        status: "error",
-        executionTime,
-        error: result.stderr || "Unknown error",
-      };
-    }
-  } catch (error: any) {
-    if (error.code === "ETIMEDOUT") {
-      logger.error("Claude Code execution timed out");
-      return {
-        turns: [],
-        status: "timeout",
-        executionTime: config.timeoutMinutes * 60 * 1000,
-        error: `Execution timed out after ${config.timeoutMinutes} minutes`,
-      };
+    // Post final comment
+    if (prId && config.bitbucketAccessToken && currentContent) {
+      await updateCommentStream({
+        config,
+        prId,
+        commentId,
+        content: currentContent,
+        isPartial: false,
+        status
+      });
     }
     
+    return {
+      turns,
+      status,
+      executionTime,
+      error
+    };
+  } catch (error: any) {
     logger.error("Failed to run Claude Code:", error);
-    throw error;
+    return {
+      turns,
+      status: "error",
+      executionTime: Date.now() - startTime,
+      error: error.message
+    };
   } finally {
+    // Clean up temp directory
+    if (tempDir) {
+      try {
+        await rm(tempDir, { recursive: true, force: true });
+      } catch (e) {
+        logger.debug("Failed to clean up temp directory:", e);
+      }
+    }
     logger.groupEnd();
   }
 }
 
 function prepareEnvironment(config: PipeConfig): Record<string, string> {
-  const env: Record<string, string> = {
-    ...process.env,
-    // Claude Code CLI will read these environment variables
-    CLAUDE_MODEL: config.model,
-    CLAUDE_MAX_TURNS: config.maxTurns.toString(),
-  };
+  const env: Record<string, string> = {};
+  
+  // Copy existing environment variables, filtering out undefined values
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
   
   // Set authentication based on provider
   if (config.anthropicApiKey) {
     env.ANTHROPIC_API_KEY = config.anthropicApiKey;
   } else if (config.awsAccessKeyId) {
-    // For AWS Bedrock via Claude Code
+    // For AWS Bedrock
     env.AWS_ACCESS_KEY_ID = config.awsAccessKeyId;
     env.AWS_SECRET_ACCESS_KEY = config.awsSecretAccessKey || "";
     env.AWS_REGION = config.awsRegion || "us-east-1";
-    env.CLAUDE_PROVIDER = "bedrock";
   } else if (config.gcpProjectId) {
-    // For Google Vertex AI via Claude Code
+    // For Google Vertex AI
     env.GCP_PROJECT_ID = config.gcpProjectId;
     env.GCP_REGION = config.gcpRegion || "us-central1";
     if (config.gcpServiceAccountKey) {
       env.GOOGLE_APPLICATION_CREDENTIALS = config.gcpServiceAccountKey;
     }
-    env.CLAUDE_PROVIDER = "vertex";
   }
   
   return env;
 }
 
-function buildClaudeCommand(
-  config: PipeConfig, 
-  contextFile: string,
-  outputDir: string
-): string[] {
-  const args: string[] = [];
-  
-  // Add context/prompt
-  args.push("--prompt-file", contextFile);
-  
-  // Add output directory
-  args.push("--output", outputDir);
+function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
+  const args: string[] = [
+    "-p", // Pipe mode
+    "--verbose",
+    "--output-format", "stream-json"
+  ];
   
   // Add model
-  args.push("--model", config.model);
+  if (config.model) {
+    args.push("--model", config.model);
+  }
   
   // Add max turns
-  args.push("--max-turns", config.maxTurns.toString());
-  
-  // Add timeout
-  args.push("--timeout", `${config.timeoutMinutes}m`);
+  if (config.maxTurns > 0) {
+    args.push("--max-turns", config.maxTurns.toString());
+  }
   
   // Add allowed tools
   if (config.allowedTools && config.allowedTools.length > 0) {
@@ -165,43 +276,19 @@ function buildClaudeCommand(
   
   // Add blocked tools
   if (config.blockedTools && config.blockedTools.length > 0) {
-    args.push("--blocked-tools", config.blockedTools.join(","));
+    args.push("--disallowed-tools", config.blockedTools.join(","));
   }
   
-  // Add verbose flag
-  if (config.verbose) {
-    args.push("--verbose");
+  // Add MCP config if available
+  if (mcpConfigFile) {
+    args.push("--mcp-config", mcpConfigFile);
   }
   
-  // Add no-interactive flag for CI/CD environments
-  args.push("--no-interactive");
-  
-  // Add JSON output for parsing
-  args.push("--format", "json");
+  // Note: Custom instructions/system prompt would go here if supported
+  // The config doesn't currently have a customInstructions field
   
   return args;
 }
 
-async function parseExecutionResults(outputDir: string): Promise<ConversationTurn[]> {
-  try {
-    // Claude Code outputs results in a specific format
-    const executionFile = join(outputDir, "execution.json");
-    const content = await readFile(executionFile, "utf-8");
-    const data = JSON.parse(content);
-    
-    // Convert Claude Code output format to our ConversationTurn format
-    if (data.conversation && Array.isArray(data.conversation)) {
-      return data.conversation.map((turn: any) => ({
-        role: turn.role,
-        content: turn.content,
-        timestamp: turn.timestamp || new Date().toISOString(),
-        tools: turn.tools || [],
-      }));
-    }
-    
-    return data.turns || [];
-  } catch (error) {
-    logger.warning("Could not parse execution results:", error);
-    return [];
-  }
-}
+// Helper function to read file (import was missing)
+import { readFile } from "fs/promises";
