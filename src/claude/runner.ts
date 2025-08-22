@@ -79,6 +79,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // Log authentication status
     if (env.ANTHROPIC_API_KEY) {
       logger.info("Using Anthropic API key for authentication");
+      console.log("[DEBUG] API key length:", env.ANTHROPIC_API_KEY.length);
+      console.log("[DEBUG] API key starts with:", env.ANTHROPIC_API_KEY.substring(0, 10) + "...");
     } else if (env.AWS_ACCESS_KEY_ID) {
       logger.info("Using AWS Bedrock for authentication");
     } else if (env.GCP_PROJECT_ID) {
@@ -106,6 +108,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       stdio: ["pipe", "pipe", "pipe"] // Capture stderr too
     });
     
+    console.log("[DEBUG] Claude process spawned with PID:", claudeProcess.pid);
+    
     // Set timeout
     const timeout = setTimeout(() => {
       logger.error("Claude Code execution timed out");
@@ -122,8 +126,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       stderrBuffer += chunkStr;
       stderrOutput += chunkStr;
       
-      // Log stderr immediately in verbose mode
-      if (config.verbose && chunkStr.trim()) {
+      // Always log stderr to catch errors
+      if (chunkStr.trim()) {
         console.error("CLAUDE STDERR:", chunkStr);
       }
       
@@ -140,13 +144,15 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // Handle stdout for streaming JSON
     let buffer = "";
     let hasOutput = false;
+    let totalOutput = "";
     claudeProcess.stdout.on("data", async (chunk) => {
       const chunkStr = chunk.toString();
       buffer += chunkStr;
+      totalOutput += chunkStr;
       
-      // Log raw output in verbose mode
-      if (config.verbose && chunkStr.trim()) {
-        logger.debug("Claude stdout (raw):", chunkStr.substring(0, 200));
+      // Always log first output to see what's happening
+      if (!hasOutput && chunkStr.trim()) {
+        console.log("CLAUDE STDOUT (first chunk):", chunkStr.substring(0, 500));
         hasOutput = true;
       }
       
@@ -200,12 +206,17 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     
     // Send prompt file to stdin
     const promptContent = await readFile(promptFile);
-    logger.debug(`Sending prompt to Claude (${promptContent.length} bytes):`);
-    if (config.verbose) {
-      logger.debug("Prompt preview:", promptContent.toString().substring(0, 500) + "...");
-    }
+    console.log(`[DEBUG] Sending prompt to Claude (${promptContent.length} bytes)`);
+    console.log("[DEBUG] Prompt preview:", promptContent.toString().substring(0, 200) + "...");
+    
+    claudeProcess.stdin.on("error", (err) => {
+      console.error("STDIN ERROR:", err);
+    });
+    
     claudeProcess.stdin.write(promptContent);
-    claudeProcess.stdin.end();
+    claudeProcess.stdin.end(() => {
+      console.log("[DEBUG] Stdin closed successfully");
+    });
     
     // Wait for process to complete
     await new Promise<void>((resolve, reject) => {
