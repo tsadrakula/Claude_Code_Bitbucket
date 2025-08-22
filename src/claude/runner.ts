@@ -69,11 +69,10 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // MCP servers are not working with Claude CLI yet, skip for now
     // TODO: Fix MCP server configuration format for Claude CLI
     
-    // Build Claude command arguments (include prompt as argument)
+    // Build Claude command arguments (prompt will be passed via stdin)
     // Pass the tools from RunOptions if provided, otherwise use config defaults
     const args = buildClaudeArgs(
-      { ...config, allowedTools: allowedTools || config.allowedTools, blockedTools: blockedTools || config.blockedTools },
-      prompt
+      { ...config, allowedTools: allowedTools || config.allowedTools, blockedTools: blockedTools || config.blockedTools }
     );
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
@@ -146,6 +145,10 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     });
     
     console.log("[DEBUG] Claude process spawned with PID:", claudeProcess.pid);
+    
+    // Write the prompt to stdin
+    claudeProcess.stdin.write(prompt);
+    claudeProcess.stdin.end();
     
     // Set timeout
     const timeout = setTimeout(() => {
@@ -403,7 +406,7 @@ function prepareEnvironment(config: PipeConfig): Record<string, string> {
   return env;
 }
 
-function buildClaudeArgs(config: PipeConfig, prompt: string): string[] {
+function buildClaudeArgs(config: PipeConfig): string[] {
   const args: string[] = [
     "-p", // Print mode (non-interactive)
     "--verbose", // Required when using stream-json with -p
@@ -435,8 +438,7 @@ function buildClaudeArgs(config: PipeConfig, prompt: string): string[] {
     args.push("--disallowed-tools", config.blockedTools.join(","));
   }
   
-  // Add the prompt as the last argument
-  args.push(prompt);
+  // Note: prompt will be passed via stdin, not as argument
   
   // Log what args we're using in verbose mode
   if (config.verbose) {
