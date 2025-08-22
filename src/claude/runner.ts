@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { writeFile, mkdtemp, rm } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
+import { tmpdir, homedir } from "os";
 import type { PipeConfig, BitbucketContext, ClaudeResult, ConversationTurn } from "../types/config";
 import { logger } from "../utils/logger";
 import { createMcpServers } from "../mcp/servers";
@@ -73,8 +73,17 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       });
     }
     
+    // Determine claude binary path
+    let claudeBin = "claude";
+    if (process.env.CLAUDE_BIN_PATH) {
+      claudeBin = join(process.env.CLAUDE_BIN_PATH, "claude");
+    } else if (!env.PATH?.includes(".local/bin")) {
+      // Fallback to full path if PATH might not be set correctly
+      claudeBin = join(homedir(), ".local", "bin", "claude");
+    }
+    
     // Spawn Claude process
-    const claudeProcess = spawn("claude", args, {
+    const claudeProcess = spawn(claudeBin, args, {
       env,
       cwd: process.cwd(),
       stdio: ["pipe", "pipe", "inherit"]
