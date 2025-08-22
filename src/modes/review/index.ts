@@ -122,8 +122,10 @@ The user has made an actionable request that requires changes to the code.
 1. Read the relevant files to understand the current implementation
 2. Make the requested changes directly using the Edit or MultiEdit tools
 3. After making changes, commit them to the branch:
-   - Run \`git add -A\` to stage all changes
-   - Run \`git commit -m "Your commit message"\` to commit
+   - Run \`git status\` to see what files you modified
+   - Run \`git add <specific-files-you-edited>\` to stage ONLY the files you changed
+   - Do NOT add .claude-pipe or any other untracked files
+   - Run \`git commit -m "Your descriptive commit message"\` to commit
    - Run \`git push\` to push changes to the remote branch
 
 Important: You MUST make the changes the user requested and commit them to the PR branch.

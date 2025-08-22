@@ -346,7 +346,6 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         inlineContext,
         parentCommentId
       });
-      logger.success("Posted final Claude response to PR");
     }
     
     return {
