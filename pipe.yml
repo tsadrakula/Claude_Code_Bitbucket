@@ -1,0 +1,77 @@
+name: Claude Bitbucket Pipe
+image: claudecode/bitbucket-pipe:latest
+description: AI-powered code assistance for Bitbucket Pipelines
+category: Code Quality
+repository: https://github.com/your-org/claude-bitbucket-pipe
+maintainer:
+  name: Your Organization
+  email: support@your-org.com
+tags:
+  - ai
+  - code-review
+  - automation
+  - claude
+  - anthropic
+variables:
+  - name: MODE
+    description: "Execution mode: tag, agent, or experimental-review"
+    default: tag
+    required: false
+  - name: TRIGGER_PHRASE
+    description: "Phrase that triggers Claude (e.g., '@claude')"
+    default: "@claude"
+    required: false
+  - name: ANTHROPIC_API_KEY
+    description: "Anthropic API key for Claude"
+    required: false
+  - name: BITBUCKET_ACCESS_TOKEN
+    description: "Bitbucket access token for API operations"
+    required: false
+  - name: MODEL
+    description: "Claude model to use"
+    default: "claude-3-5-sonnet-20241022"
+    required: false
+  - name: MAX_TURNS
+    description: "Maximum conversation turns"
+    default: "30"
+    required: false
+  - name: TIMEOUT_MINUTES
+    description: "Timeout in minutes"
+    default: "10"
+    required: false
+  - name: ALLOWED_TOOLS
+    description: "Comma-separated list of allowed tools"
+    required: false
+  - name: BLOCKED_TOOLS
+    description: "Comma-separated list of blocked tools"
+    required: false
+  - name: BRANCH_PREFIX
+    description: "Prefix for created branches"
+    default: "claude/"
+    required: false
+  - name: AUTO_COMMIT
+    description: "Automatically commit changes"
+    default: "false"
+    required: false
+  - name: AUTO_PR
+    description: "Automatically create pull request"
+    default: "false"
+    required: false
+  - name: AWS_REGION
+    description: "AWS region for Bedrock"
+    required: false
+  - name: AWS_ACCESS_KEY_ID
+    description: "AWS access key for Bedrock"
+    required: false
+  - name: AWS_SECRET_ACCESS_KEY
+    description: "AWS secret key for Bedrock"
+    required: false
+  - name: GCP_PROJECT_ID
+    description: "GCP project ID for Vertex AI"
+    required: false
+  - name: GCP_REGION
+    description: "GCP region for Vertex AI"
+    required: false
+  - name: GCP_SERVICE_ACCOUNT_KEY
+    description: "GCP service account key JSON"
+    required: false

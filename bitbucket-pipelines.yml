@@ -1,0 +1,218 @@
+image: node:20
+
+definitions:
+  services:
+    docker:
+      memory: 2048
+
+pipelines:
+  # Default pipeline for pushes to any branch
+  default:
+    - step:
+        name: Build and Test
+        caches:
+          - node
+        script:
+          - curl -fsSL https://bun.sh/install | bash
+          - export PATH="$HOME/.bun/bin:$PATH"
+          - bun install
+          - bun run typecheck
+          - bun test
+          - bun run build
+
+  # Pull request pipelines
+  pull-requests:
+    '**':
+      - parallel:
+          - step:
+              name: Code Quality
+              caches:
+                - node
+              script:
+                - curl -fsSL https://bun.sh/install | bash
+                - export PATH="$HOME/.bun/bin:$PATH"
+                - bun install
+                - bun run lint
+                - bun run format --check
+                - bun run typecheck
+          
+          - step:
+              name: Tests
+              caches:
+                - node
+              script:
+                - curl -fsSL https://bun.sh/install | bash
+                - export PATH="$HOME/.bun/bin:$PATH"
+                - bun install
+                - bun test --coverage
+          
+          - step:
+              name: Claude Review
+              script:
+                - pipe: docker://claudecode/bitbucket-pipe:latest
+                  variables:
+                    MODE: experimental-review
+                    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                    BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
+              services:
+                - docker
+
+  # Branch-specific pipelines
+  branches:
+    main:
+      - step:
+          name: Build and Publish
+          caches:
+            - node
+            - docker
+          script:
+            # Build and test
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            - bun install
+            - bun run build
+            - bun test
+            
+            # Build Docker image
+            - docker build -t claudecode/bitbucket-pipe:${BITBUCKET_BUILD_NUMBER} .
+            - docker tag claudecode/bitbucket-pipe:${BITBUCKET_BUILD_NUMBER} claudecode/bitbucket-pipe:latest
+            
+            # Push to registry (configure your registry credentials)
+            - echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+            - docker push claudecode/bitbucket-pipe:${BITBUCKET_BUILD_NUMBER}
+            - docker push claudecode/bitbucket-pipe:latest
+          services:
+            - docker
+
+    develop:
+      - step:
+          name: Development Build
+          caches:
+            - node
+            - docker
+          script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            - bun install
+            - bun run build
+            - bun test
+            - docker build -t claudecode/bitbucket-pipe:dev .
+          services:
+            - docker
+
+  # Custom pipelines for manual triggers
+  custom:
+    claude-assist:
+      - step:
+          name: Run Claude Assistant
+          script:
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: tag
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
+                TRIGGER_PHRASE: "@claude"
+          services:
+            - docker
+
+    security-audit:
+      - step:
+          name: Security Audit with Claude
+          script:
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: agent
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                CLAUDE_AGENT_PROMPT: |
+                  Perform a comprehensive security audit:
+                  1. Check for common vulnerabilities
+                  2. Review authentication and authorization
+                  3. Identify potential data leaks
+                  4. Check dependency vulnerabilities
+                  5. Review API security
+                ALLOWED_TOOLS: "Read,Grep"
+          services:
+            - docker
+
+    performance-analysis:
+      - step:
+          name: Performance Analysis
+          script:
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: agent
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                CLAUDE_AGENT_PROMPT: |
+                  Analyze code performance:
+                  1. Identify performance bottlenecks
+                  2. Check for inefficient algorithms
+                  3. Review database queries
+                  4. Suggest optimization opportunities
+                  5. Check resource usage patterns
+          services:
+            - docker
+
+    documentation-check:
+      - step:
+          name: Documentation Review
+          script:
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: agent
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                CLAUDE_AGENT_PROMPT: |
+                  Review and improve documentation:
+                  1. Check README completeness
+                  2. Verify API documentation
+                  3. Review code comments
+                  4. Suggest missing documentation
+                  5. Check for outdated information
+          services:
+            - docker
+
+  # Tag pipelines for releases
+  tags:
+    'v*':
+      - step:
+          name: Release Build
+          caches:
+            - node
+            - docker
+          script:
+            # Build and test
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            - bun install
+            - bun run build
+            - bun test
+            
+            # Build and tag Docker image with version
+            - VERSION=${BITBUCKET_TAG#v}
+            - docker build -t claudecode/bitbucket-pipe:${VERSION} .
+            - docker tag claudecode/bitbucket-pipe:${VERSION} claudecode/bitbucket-pipe:latest
+            
+            # Push to registry
+            - echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+            - docker push claudecode/bitbucket-pipe:${VERSION}
+            - docker push claudecode/bitbucket-pipe:latest
+            
+            # Create release notes with Claude
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: agent
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                CLAUDE_AGENT_PROMPT: |
+                  Generate release notes for version ${VERSION}:
+                  1. List major changes
+                  2. Breaking changes
+                  3. New features
+                  4. Bug fixes
+                  5. Migration guide if needed
+          services:
+            - docker
+
+# Caches definition
+definitions:
+  caches:
+    node: node_modules
+    docker: /var/lib/docker
