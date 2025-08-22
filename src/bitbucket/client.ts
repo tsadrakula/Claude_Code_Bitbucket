@@ -119,6 +119,59 @@ export class BitbucketClient {
   }
 
   /**
+   * Create an inline comment on specific lines
+   */
+  async createInlineComment(
+    pullRequestId: number, 
+    content: string,
+    path: string,
+    from: number,
+    to?: number,
+    parentId?: string
+  ) {
+    try {
+      // Ensure content is not empty
+      if (!content || content.trim() === "") {
+        content = "Processing...";
+      }
+      
+      const requestBody: any = {
+        content: {
+          raw: content
+        },
+        inline: {
+          path: path,
+          from: from,
+          to: to || from
+        }
+      };
+      
+      // Add parent if this is a reply to existing thread
+      if (parentId) {
+        requestBody.parent = { id: parentId };
+      }
+      
+      if (this.config.verbose) {
+        logger.debug("Creating inline PR comment with body:", JSON.stringify(requestBody));
+        logger.debug(`PR ID: ${pullRequestId}, Path: ${path}, Lines: ${from}-${to || from}`);
+      }
+      
+      const { data } = await this.client.pullrequests.createComment({
+        workspace: this.config.workspace,
+        repo_slug: this.config.repoSlug,
+        pull_request_id: pullRequestId,
+        _body: requestBody as any,
+      });
+      
+      logger.success("Successfully created inline PR comment");
+      return data;
+    } catch (error: any) {
+      logger.warning(`Failed to create inline PR comment:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Create a pull request comment
    */
   async createPullRequestComment(pullRequestId: number, content: string) {

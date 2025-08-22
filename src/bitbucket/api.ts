@@ -29,6 +29,17 @@ export class BitbucketAPI {
     return this.client.createPullRequestComment(prId, content);
   }
 
+  async createInlineComment(
+    prId: number, 
+    content: string,
+    path: string,
+    from: number,
+    to?: number,
+    parentId?: string
+  ): Promise<any> {
+    return this.client.createInlineComment(prId, content, path, from, to, parentId);
+  }
+
   async updatePullRequestComment(prId: number, _commentId: string, content: string): Promise<any> {
     // The Bitbucket SDK doesn't have a direct update method, 
     // but we can delete and recreate if needed

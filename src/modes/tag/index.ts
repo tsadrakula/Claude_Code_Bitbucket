@@ -29,6 +29,8 @@ export class TagMode implements Mode {
     let triggerSource: "description" | "comment" | "commit" | undefined;
     let commentId: any;
     let userRequest = "";
+    let inlineContext: any = null;
+    let parentCommentId: string | undefined = undefined;
 
     // Handle PR context - check both description and comments
     if (context.pullRequest && config.prId) {
@@ -61,6 +63,22 @@ export class TagMode implements Mode {
             
             if (content && content.includes(triggerPhrase)) {
               logger.info(`Found trigger phrase in comment ${comment.id}`);
+              
+              // Check if this is an inline comment
+              if (comment.inline) {
+                logger.info(`Comment is inline on ${comment.inline.path} lines ${comment.inline.from}-${comment.inline.to}`);
+                inlineContext = {
+                  path: comment.inline.path,
+                  from: comment.inline.from,
+                  to: comment.inline.to || comment.inline.from,
+                };
+                
+                // If this is a reply, track the parent
+                if (comment.parent) {
+                  parentCommentId = comment.parent.id;
+                }
+              }
+              
               triggerSource = "comment";
               commentId = comment.id;
               userRequest = content
@@ -95,10 +113,16 @@ ${context.pullRequest.description || "No description provided"}
 
 ## User Request
 ${userRequest}
-
+${
+  inlineContext 
+    ? `\n## Inline Comment Context\nThe user commented on **${inlineContext.path}** (lines ${inlineContext.from}-${inlineContext.to})\n` 
+    : ""
+}
 ## Instructions
 You are reviewing a pull request in Bitbucket. ${
-  triggerSource === "comment" 
+  triggerSource === "comment" && inlineContext
+    ? "The user mentioned you in an inline comment on specific lines of code. Focus your response on those specific lines."
+    : triggerSource === "comment" 
     ? "The user mentioned you in a PR comment." 
     : triggerSource === "description"
     ? "The user mentioned you in the PR description."
@@ -164,6 +188,8 @@ You are assisting with a Bitbucket repository. Provide help based on the current
       blockedTools: config.blockedTools,
       triggerSource,
       commentId,
+      inlineContext,
+      parentCommentId,
     };
   }
 }

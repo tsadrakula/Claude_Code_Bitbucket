@@ -13,6 +13,12 @@ interface RunOptions {
   prompt: string;
   prId?: number;
   commentId?: string;
+  inlineContext?: {
+    path: string;
+    from: number;
+    to: number;
+  };
+  parentCommentId?: string;
 }
 
 interface StreamEvent {
@@ -40,7 +46,7 @@ interface StreamEvent {
 }
 
 export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> {
-  const { config, prompt, prId, commentId } = options;
+  const { config, prompt, prId, commentId, inlineContext, parentCommentId } = options;
   const startTime = Date.now();
   
   logger.group("Running Claude Code");
@@ -77,7 +83,9 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         prId,
         commentId,
         content: "",  // Start with empty content, the formatter will add the prefix
-        isPartial: true
+        isPartial: true,
+        inlineContext,
+        parentCommentId
       });
     }
     
@@ -199,7 +207,9 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
                       prId,
                       commentId,
                       content: currentContent,
-                      isPartial: true
+                      isPartial: true,
+                      inlineContext,
+                      parentCommentId
                     });
                   }
                 } else if (content.type === "tool_use") {
@@ -310,7 +320,9 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         commentId,
         content: currentContent,
         isPartial: false,
-        status
+        status,
+        inlineContext,
+        parentCommentId
       });
     }
     

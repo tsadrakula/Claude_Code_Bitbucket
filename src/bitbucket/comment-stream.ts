@@ -9,13 +9,19 @@ interface UpdateOptions {
   content: string;
   isPartial: boolean;
   status?: "success" | "error" | "timeout";
+  inlineContext?: {
+    path: string;
+    from: number;
+    to: number;
+  };
+  parentCommentId?: string;
 }
 
 let lastUpdateTime = 0;
 const UPDATE_THROTTLE_MS = 1000; // Throttle updates to once per second
 
 export async function updateCommentStream(options: UpdateOptions): Promise<void> {
-  const { config, prId, content, isPartial, status } = options;
+  const { config, prId, content, isPartial, status, inlineContext, parentCommentId } = options;
   
   // Throttle updates to avoid rate limiting
   const now = Date.now();
@@ -46,10 +52,28 @@ export async function updateCommentStream(options: UpdateOptions): Promise<void>
   if (config.bitbucketAccessToken) {
     try {
       const api = new BitbucketAPI(config);
-      await api.createPullRequestComment(prId, formattedContent);
       
-      if (!isPartial) {
-        logger.success("Posted final Claude response to PR");
+      // If this is an inline comment response, post as inline
+      if (inlineContext) {
+        await api.createInlineComment(
+          prId, 
+          formattedContent,
+          inlineContext.path,
+          inlineContext.from,
+          inlineContext.to,
+          parentCommentId
+        );
+        
+        if (!isPartial) {
+          logger.success(`Posted final Claude response as inline comment on ${inlineContext.path}`);
+        }
+      } else {
+        // Regular top-level comment
+        await api.createPullRequestComment(prId, formattedContent);
+        
+        if (!isPartial) {
+          logger.success("Posted final Claude response to PR");
+        }
       }
     } catch (error) {
       // Don't fail the whole process if comment posting fails
