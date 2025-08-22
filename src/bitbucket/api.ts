@@ -33,8 +33,8 @@ export class BitbucketAPI {
     prId: number, 
     content: string,
     path: string,
-    from: number,
-    to?: number,
+    from: number | null,
+    to?: number | null,
     parentId?: string
   ): Promise<any> {
     return this.client.createInlineComment(prId, content, path, from, to, parentId);

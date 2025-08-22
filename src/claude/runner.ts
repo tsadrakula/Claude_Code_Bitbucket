@@ -15,8 +15,8 @@ interface RunOptions {
   commentId?: string;
   inlineContext?: {
     path: string;
-    from: number;
-    to: number;
+    from: number | null;
+    to: number | null;
   };
   parentCommentId?: string;
 }

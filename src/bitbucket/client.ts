@@ -125,8 +125,8 @@ export class BitbucketClient {
     pullRequestId: number, 
     content: string,
     path: string,
-    from: number,
-    to?: number,
+    from: number | null,
+    to?: number | null,
     parentId?: string
   ) {
     try {
@@ -135,16 +135,24 @@ export class BitbucketClient {
         content = "Processing...";
       }
       
+      // Handle null line numbers (can happen with new files or certain diff contexts)
+      const validFrom = from !== null ? from : (to !== null ? to : undefined);
+      const validTo = to !== null ? to : from !== null ? from : undefined;
+      
       const requestBody: any = {
         content: {
           raw: content
-        },
-        inline: {
-          path: path,
-          from: from,
-          to: to || from
         }
       };
+      
+      // Only add inline context if we have valid line numbers
+      if (validFrom !== undefined) {
+        requestBody.inline = {
+          path: path,
+          from: validFrom,
+          to: validTo || validFrom
+        };
+      }
       
       // Add parent if this is a reply to existing thread
       if (parentId) {

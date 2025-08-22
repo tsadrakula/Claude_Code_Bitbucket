@@ -62,8 +62,8 @@ export interface PrepareResult {
   triggerSource?: "description" | "comment" | "commit";
   inlineContext?: {
     path: string;
-    from: number;
-    to: number;
+    from: number | null;
+    to: number | null;
   };
   parentCommentId?: string;
   commentType?: "inline" | "top-level" | "jira";  // For future extensibility

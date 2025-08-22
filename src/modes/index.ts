@@ -15,8 +15,8 @@ export interface Mode {
     commentId?: any;
     inlineContext?: {
       path: string;
-      from: number;
-      to: number;
+      from: number | null;
+      to: number | null;
     };
     parentCommentId?: string;
   }>;

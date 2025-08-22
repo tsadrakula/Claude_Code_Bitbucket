@@ -11,8 +11,8 @@ interface UpdateOptions {
   status?: "success" | "error" | "timeout";
   inlineContext?: {
     path: string;
-    from: number;
-    to: number;
+    from: number | null;
+    to: number | null;
   };
   parentCommentId?: string;
 }
@@ -55,17 +55,28 @@ export async function updateCommentStream(options: UpdateOptions): Promise<void>
       
       // If this is an inline comment response, post as inline
       if (inlineContext) {
-        await api.createInlineComment(
-          prId, 
-          formattedContent,
-          inlineContext.path,
-          inlineContext.from,
-          inlineContext.to,
-          parentCommentId
-        );
-        
-        if (!isPartial) {
-          logger.success(`Posted final Claude response as inline comment on ${inlineContext.path}`);
+        // Check if we have valid line numbers
+        if (inlineContext.from === null && inlineContext.to === null) {
+          logger.warning("Inline context has null line numbers, falling back to regular comment");
+          // Fall back to regular comment
+          await api.createPullRequestComment(prId, formattedContent);
+          
+          if (!isPartial) {
+            logger.success("Posted final Claude response as top-level comment (null line numbers)");
+          }
+        } else {
+          await api.createInlineComment(
+            prId, 
+            formattedContent,
+            inlineContext.path,
+            inlineContext.from,
+            inlineContext.to,
+            parentCommentId
+          );
+          
+          if (!isPartial) {
+            logger.success(`Posted final Claude response as inline comment on ${inlineContext.path}`);
+          }
         }
       } else {
         // Regular top-level comment
