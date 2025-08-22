@@ -1,10 +1,19 @@
-# Claude Code for Bitbucket Pipelines
+# Claude Code for Bitbucket Pipelines - Technical Documentation
 
-This project provides a Bitbucket Pipe implementation of Claude Code, enabling AI-powered code assistance directly in your Bitbucket workflows. It's the Bitbucket equivalent of the GitHub Actions Claude Code implementation.
+This document provides technical details about the Bitbucket Pipe implementation of Claude Code, which mirrors the GitHub Actions Claude Code implementation while adapting to Bitbucket's architecture.
 
 ## Architecture Overview
 
-The implementation is built with TypeScript and Bun runtime, mirroring the GitHub Actions version's architecture while adapting to Bitbucket's pipeline-based execution model.
+The implementation is built with TypeScript and Bun runtime, following the same patterns as the GitHub Actions version while utilizing Bitbucket-specific SDKs and environment.
+
+### Technology Stack
+
+- **Runtime**: Bun 1.2.11+ (matching GitHub Action)
+- **Language**: TypeScript with strict typing
+- **SDKs**: 
+  - `bitbucket` - Official Bitbucket API client (equivalent to `@actions/github`)
+  - `@modelcontextprotocol/sdk` - MCP support for Claude tools
+- **Container**: Alpine-based Docker image with Bun
 
 ### Key Components
 
@@ -16,309 +25,373 @@ src/
 │   ├── format-turns.ts   # Conversation formatting
 │   └── update-comment.ts # Bitbucket comment updates
 ├── bitbucket/           # Bitbucket API integration
-│   ├── api.ts           # API client for Bitbucket Cloud
+│   ├── api.ts           # API wrapper for backward compatibility
+│   ├── client.ts        # BitbucketClient using official SDK
 │   └── comment.ts       # PR comment management
+├── pipelines/           # Pipeline utilities
+│   └── core.ts          # Core utilities (like @actions/core)
+├── mcp/                 # Model Context Protocol
+│   ├── servers.ts       # MCP server implementation
+│   └── start-server.ts  # MCP server entry point
 ├── modes/               # Operational modes
 │   ├── tag/             # @claude mention mode
 │   ├── agent/           # Automated/scheduled mode
 │   └── review/          # PR review mode
 ├── claude/              # Claude integration
-│   └── runner.ts        # Claude Code execution
+│   └── runner.ts        # Claude Code CLI execution
 ├── prepare/             # Preparation workflow
 ├── format/              # Output formatting
-├── types/               # TypeScript types
+├── types/               # TypeScript type definitions
 └── utils/               # Utility functions
 ```
+
+## SDK Comparison with GitHub Action
+
+| Component | GitHub Action | Bitbucket Pipe | Purpose |
+|-----------|--------------|----------------|---------|
+| Core Utilities | `@actions/core` | `PipelinesCore` class | Input/output, state management |
+| API Client | `@actions/github` | `bitbucket` npm package | Platform API integration |
+| GraphQL | `@octokit/graphql` | N/A (REST only) | API queries |
+| REST API | `@octokit/rest` | Built into `bitbucket` | REST operations |
+| MCP SDK | `@modelcontextprotocol/sdk` | `@modelcontextprotocol/sdk` | Claude tool support |
+
+## Core Modules
+
+### BitbucketClient (`src/bitbucket/client.ts`)
+
+Wraps the official Bitbucket SDK to provide a clean interface for Bitbucket operations:
+
+```typescript
+const client = new BitbucketClient(config);
+await client.createPullRequestComment(prId, "Review complete!");
+await client.createPullRequest(title, description, sourceBranch);
+```
+
+Features:
+- Automatic authentication handling (token or username/password)
+- Graceful fallback to environment variables when API unavailable
+- Full TypeScript typing from official SDK
+- Error handling with informative logging
+
+### PipelinesCore (`src/pipelines/core.ts`)
+
+Provides utilities similar to `@actions/core` for GitHub Actions:
+
+```typescript
+// Get inputs
+const apiKey = PipelinesCore.getInput('ANTHROPIC_API_KEY', { required: true });
+const verbose = PipelinesCore.getBooleanInput('VERBOSE');
+
+// Set outputs
+PipelinesCore.setOutput('branch_name', 'claude/fix-123');
+PipelinesCore.saveState('pr_id', '456');
+
+// Pipeline context
+const context = PipelinesCore.getContext();
+```
+
+### MCP Servers (`src/mcp/servers.ts`)
+
+Implements Model Context Protocol servers for Claude to interact with Bitbucket:
+
+```typescript
+const server = new BitbucketMcpServer(config);
+```
+
+Available tools:
+- `bitbucket_comment` - Create PR comments
+- `bitbucket_create_pr` - Create pull requests
+- `bitbucket_get_pr` - Get PR details
+- `bitbucket_get_diff` - Get PR diff
+- `pipeline_set_output` - Set pipeline outputs
+- `pipeline_save_state` - Save state between steps
 
 ## Modes of Operation
 
 ### 1. Tag Mode (Default)
-Responds to `@claude` mentions in PR comments, commit messages, or manual triggers.
-
-```yaml
-- pipe: claude-code/bitbucket-pipe:latest
-  variables:
-    MODE: tag
-    TRIGGER_PHRASE: "@claude"
-```
+- Responds to `@claude` mentions in PR comments or commit messages
+- Creates tracking comments (when API available)
+- Full implementation capabilities
+- Most interactive mode
 
 ### 2. Agent Mode
-For automated/scheduled runs without user interaction.
-
-```yaml
-- pipe: claude-code/bitbucket-pipe:latest
-  variables:
-    MODE: agent
-    CLAUDE_AGENT_PROMPT: "Perform security audit and suggest improvements"
-```
+- For automated/scheduled runs
+- No user interaction required
+- Minimal tool access for safety
+- Custom prompts via `CLAUDE_AGENT_PROMPT`
 
 ### 3. Review Mode (Experimental)
-Automatic PR reviews on pull request events.
-
-```yaml
-- pipe: claude-code/bitbucket-pipe:latest
-  variables:
-    MODE: experimental-review
-```
-
-## Authentication Providers
-
-### Anthropic API (Primary)
-```yaml
-variables:
-  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-  MODEL: claude-3-5-sonnet-20241022
-```
-
-### AWS Bedrock
-```yaml
-variables:
-  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-  AWS_REGION: us-east-1
-  MODEL: anthropic.claude-3-5-sonnet-20241022-v2
-```
-
-### Google Vertex AI
-```yaml
-variables:
-  GCP_PROJECT_ID: ${GCP_PROJECT_ID}
-  GCP_SERVICE_ACCOUNT_KEY: ${GCP_SERVICE_ACCOUNT_KEY}
-  GCP_REGION: us-central1
-  MODEL: claude-3-5-sonnet@20241022
-```
+- Automatic PR reviews
+- Triggered on PR events
+- Read-only tool access
+- Provides structured feedback
 
 ## Environment Variables
 
-### Required
-- `BITBUCKET_WORKSPACE` - Workspace slug (auto-set by Pipelines)
-- `BITBUCKET_REPO_SLUG` - Repository slug (auto-set by Pipelines)
-- One of: `ANTHROPIC_API_KEY`, AWS credentials, or GCP credentials
+### Required Variables
+```bash
+# One authentication method required:
+ANTHROPIC_API_KEY=sk-ant-...        # Anthropic API
+# OR
+AWS_ACCESS_KEY_ID=...                # AWS Bedrock
+AWS_SECRET_ACCESS_KEY=...
+# OR
+GCP_PROJECT_ID=...                   # Google Vertex AI
+GCP_SERVICE_ACCOUNT_KEY=...
 
-### Optional
-- `MODE` - Execution mode: `tag`, `agent`, `experimental-review` (default: `tag`)
-- `TRIGGER_PHRASE` - Phrase that triggers Claude (default: `@claude`)
-- `MODEL` - Claude model to use (default: `claude-3-5-sonnet-20241022`)
-- `MAX_TURNS` - Maximum conversation turns (default: `30`)
-- `TIMEOUT_MINUTES` - Timeout in minutes (default: `10`)
-- `ALLOWED_TOOLS` - Comma-separated list of allowed tools
-- `BLOCKED_TOOLS` - Comma-separated list of blocked tools
-- `BRANCH_PREFIX` - Prefix for created branches (default: `claude/`)
-- `AUTO_COMMIT` - Automatically commit changes (default: `false`)
-- `AUTO_PR` - Automatically create pull request (default: `false`)
-- `BITBUCKET_ACCESS_TOKEN` - For API operations (recommended)
-- `VERBOSE` - Enable verbose logging (default: `false`)
-- `DRY_RUN` - Run without making changes (default: `false`)
+# Bitbucket context (auto-set by Pipelines)
+BITBUCKET_WORKSPACE=your-workspace
+BITBUCKET_REPO_SLUG=your-repo
+```
 
-## Pipeline Configuration Examples
+### Optional Variables
+```bash
+# Configuration
+MODE=tag|agent|experimental-review   # Execution mode
+TRIGGER_PHRASE=@claude               # Trigger phrase
+MODEL=claude-3-5-sonnet-20241022    # Claude model
+MAX_TURNS=30                         # Max conversation turns
+TIMEOUT_MINUTES=10                   # Timeout duration
 
-### Basic PR Review
+# Tools
+ALLOWED_TOOLS=Read,Write,Edit        # Allowed Claude tools
+BLOCKED_TOOLS=Bash,Computer          # Blocked tools
+
+# Features
+AUTO_COMMIT=true                     # Auto-commit changes
+AUTO_PR=true                         # Auto-create PRs
+BRANCH_PREFIX=claude/                # Branch name prefix
+
+# Authentication
+BITBUCKET_ACCESS_TOKEN=...          # For API operations
+BITBUCKET_USERNAME=...               # Alternative auth
+BITBUCKET_APP_PASSWORD=...          # With username
+
+# Development
+VERBOSE=true                         # Verbose logging
+DRY_RUN=true                        # Test mode
+```
+
+### Bitbucket Pipeline Variables
+
+The pipe automatically uses these Bitbucket-provided variables:
+
+```bash
+BITBUCKET_WORKSPACE              # Workspace slug
+BITBUCKET_REPO_SLUG             # Repository slug
+BITBUCKET_BRANCH                # Current branch
+BITBUCKET_COMMIT                # Commit hash
+BITBUCKET_PR_ID                 # Pull request ID
+BITBUCKET_PR_TITLE              # PR title
+BITBUCKET_PR_DESCRIPTION        # PR description
+BITBUCKET_BUILD_NUMBER          # Build number
+BITBUCKET_PIPELINE_UUID         # Pipeline UUID
+BITBUCKET_STEP_UUID            # Step UUID
+BITBUCKET_DEPLOYMENT_ENVIRONMENT # Deployment env
+```
+
+## Pipeline Configuration
+
+### Minimal Setup
+
 ```yaml
+image: node:20
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude Review
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude
+            - cd /tmp/claude && npm install -g bun && bun install && bun run build
+            - cd $BITBUCKET_CLONE_DIR
+            - MODE=experimental-review bun run /tmp/claude/dist/index.js
+```
+
+### Full Configuration
+
+```yaml
+image: node:20
+
 pipelines:
   pull-requests:
     '**':
       - step:
           name: Claude Code Review
           script:
-            - pipe: claude-code/bitbucket-pipe:latest
-              variables:
-                MODE: review
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-```
+            # Setup
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude
+            - cd /tmp/claude
+            - npm install -g bun
+            - bun install
+            - bun run build
+            
+            # Run Claude
+            - cd $BITBUCKET_CLONE_DIR
+            - |
+              export MODE=experimental-review
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
+              export ALLOWED_TOOLS="Read,Grep"
+              export VERBOSE=true
+              bun run /tmp/claude/dist/index.js
+          after-script:
+            - echo "Claude review complete"
 
-### PR Comment Triggers
-```yaml
-pipelines:
-  pull-requests:
-    '**':
-      - step:
-          name: Claude PR Assistant
-          script:
-            - pipe: claude-code/bitbucket-pipe:latest
-              variables:
-                MODE: tag
-                TRIGGER_PHRASE: "@claude"
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-                BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
-```
-
-### Scheduled Code Analysis
-```yaml
-pipelines:
-  schedules:
-    - cron: "0 0 * * MON"
-      pattern: main
-      pipelines:
-        - step:
-            name: Weekly Code Analysis
-            script:
-              - pipe: claude-code/bitbucket-pipe:latest
-                variables:
-                  MODE: agent
-                  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-                  CLAUDE_AGENT_PROMPT: "Analyze code quality and suggest improvements"
-```
-
-### Manual Trigger with Custom Prompt
-```yaml
-pipelines:
   custom:
-    claude-assist:
+    claude-help:
       - step:
-          name: Claude Manual Assistance
+          name: Claude Assistant
           script:
-            - pipe: claude-code/bitbucket-pipe:latest
-              variables:
-                MODE: tag
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude
+            - cd /tmp/claude && npm install -g bun && bun install && bun run build
+            - cd $BITBUCKET_CLONE_DIR
+            - |
+              export MODE=tag
+              export TRIGGER_PHRASE="@claude"
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              export ALLOWED_TOOLS="Read,Write,Edit"
+              bun run /tmp/claude/dist/index.js
+```
+
+## Authentication Methods
+
+### 1. Anthropic API (Recommended)
+```yaml
+ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+MODEL: claude-3-5-sonnet-20241022
+```
+
+### 2. AWS Bedrock
+```yaml
+AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+AWS_REGION: us-east-1
+MODEL: anthropic.claude-3-5-sonnet-20241022-v2
+```
+
+### 3. Google Vertex AI
+```yaml
+GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+GCP_SERVICE_ACCOUNT_KEY: ${GCP_SERVICE_ACCOUNT_KEY}
+GCP_REGION: us-central1
+MODEL: claude-3-5-sonnet@20241022
 ```
 
 ## Tool Configuration
 
-### Allowed Tools
-Specify which tools Claude can use:
-```yaml
-ALLOWED_TOOLS: "Read,Write,Edit,Grep"
+### Available Tools
+
+Tools can be controlled via `ALLOWED_TOOLS` and `BLOCKED_TOOLS`:
+
+- `Read` - Read files
+- `Write` - Write files
+- `Edit` - Edit files
+- `Grep` - Search in files
+- `Bash` - Execute commands (use with caution)
+- `Computer` - Computer use (typically blocked)
+
+### MCP Tools
+
+When MCP servers are enabled, additional Bitbucket-specific tools become available to Claude:
+
+- `bitbucket_comment` - Create PR comments
+- `bitbucket_create_pr` - Create pull requests
+- `bitbucket_get_pr` - Get PR information
+- `bitbucket_get_diff` - Get PR diff
+- `pipeline_set_output` - Set outputs for pipeline
+- `pipeline_save_state` - Save state between steps
+
+## API Integration
+
+### Using Bitbucket SDK
+
+The implementation uses the official `bitbucket` npm package:
+
+```typescript
+import { Bitbucket } from "bitbucket";
+
+const client = new Bitbucket({
+  auth: { token: process.env.BITBUCKET_ACCESS_TOKEN }
+});
+
+const pr = await client.pullrequests.get({
+  workspace: "team",
+  repo_slug: "repo",
+  pull_request_id: 123
+});
 ```
 
-### Blocked Tools
-Prevent specific tools from being used:
-```yaml
-BLOCKED_TOOLS: "Bash,Computer"
-```
+### Fallback Strategy
 
-## Branch and Commit Management
+When API access is unavailable (no token), the system falls back to environment variables:
 
-### Automatic Branch Creation
-```yaml
-variables:
-  AUTO_COMMIT: "true"
-  BRANCH_PREFIX: "claude/fix-"
-```
-
-### Automatic PR Creation
-```yaml
-variables:
-  AUTO_COMMIT: "true"
-  AUTO_PR: "true"
-```
-
-## Bitbucket API Integration
-
-The pipe integrates with Bitbucket Cloud API v2 for:
-- Pull request management
-- Comment creation and updates
-- Branch operations
-- Pipeline triggers
-- Repository information
-
-### API Authentication
-Provide a Bitbucket access token for full functionality:
-```yaml
-BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
-```
-
-Create an access token at: https://bitbucket.org/account/settings/app-passwords/
-
-## Event Detection
-
-The pipe automatically detects Bitbucket events:
-- `PULL_REQUEST` - PR created/updated
-- `PUSH` - Code pushed to branch
-- `TAG` - Tag created
-- `MANUAL` - Manual pipeline trigger
-- `SCHEDULE` - Scheduled pipeline
-
-## Output and Artifacts
-
-Results are saved to `BITBUCKET_PIPE_STORAGE_DIR` when available:
-```json
-{
-  "branch": "claude/fix-123456",
-  "executionFile": "/tmp/claude/execution.json",
-  "status": "success",
-  "turns": 5
-}
-```
+1. Check for `BITBUCKET_ACCESS_TOKEN`
+2. Try `BITBUCKET_USERNAME` + `BITBUCKET_APP_PASSWORD`
+3. Fall back to environment variables only
+4. Log warnings but continue execution
 
 ## Differences from GitHub Actions
 
-### Architecture
-- **Bitbucket**: Docker container-based pipes
-- **GitHub**: Composite actions with runners
+### Architecture Differences
 
-### Configuration
-- **Bitbucket**: Single `bitbucket-pipelines.yml`
-- **GitHub**: Multiple workflow files in `.github/workflows/`
+| Aspect | GitHub Actions | Bitbucket Pipelines |
+|--------|---------------|-------------------|
+| Execution | Composite actions on runners | Docker containers |
+| Configuration | Multiple YAML files | Single `bitbucket-pipelines.yml` |
+| Events | Rich event system | Limited trigger types |
+| Reusability | Actions marketplace | Pipes |
+| State | Action state/outputs | File-based state |
 
-### Event System
-- **Bitbucket**: Limited event types, branch-based triggers
-- **GitHub**: Rich event system with fine-grained triggers
+### Implementation Adaptations
 
-### Execution Model
-- **Bitbucket**: Sequential steps in pipelines
-- **GitHub**: Parallel jobs and matrix builds
-
-### Tool Reusability
-- **Bitbucket**: Pipes for reusable components
-- **GitHub**: Composite actions and reusable workflows
+1. **No Composite Actions**: Everything runs in a single container
+2. **Limited Events**: Uses environment detection for event types
+3. **File-Based State**: Uses `BITBUCKET_PIPE_STORAGE_DIR` for persistence
+4. **No Real-time Webhooks**: Relies on pipeline triggers
+5. **Different API**: REST-only, no GraphQL
 
 ## Development
 
-### Building the Pipe
+### Local Development
+
 ```bash
+# Clone repository
+git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git
+cd Claude_Code_Bitbucket
+
 # Install dependencies
 bun install
 
-# Build TypeScript
-bun run build
-
-# Run tests
-bun test
-
-# Type check
+# Run type checking
 bun run typecheck
 
-# Format code
-bun run format
-```
+# Build
+bun run build
 
-### Local Testing
-```bash
-# Set environment variables
-export BITBUCKET_WORKSPACE=your-workspace
-export BITBUCKET_REPO_SLUG=your-repo
+# Test locally
+export BITBUCKET_WORKSPACE=test
+export BITBUCKET_REPO_SLUG=test-repo
 export ANTHROPIC_API_KEY=your-key
-
-# Run the pipe
-bun run src/index.ts
+export MODE=agent
+bun run dist/index.js
 ```
 
-### Docker Build
+### Docker Development
+
 ```bash
-# Build the Docker image
+# Build image
 docker build -t claude-bitbucket-pipe .
 
-# Run locally
-docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
-           -e BITBUCKET_WORKSPACE=workspace \
-           -e BITBUCKET_REPO_SLUG=repo \
-           claude-bitbucket-pipe
-```
-
-## Deployment
-
-### Using Pre-built Pipe
-```yaml
-- pipe: claude-code/bitbucket-pipe:latest
-```
-
-### Self-hosted Pipe
-1. Fork this repository
-2. Build and push to your Docker registry
-3. Reference your custom pipe:
-```yaml
-- pipe: your-org/claude-bitbucket-pipe:version
+# Run container
+docker run \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  -e BITBUCKET_WORKSPACE=test \
+  -e BITBUCKET_REPO_SLUG=repo \
+  -e MODE=agent \
+  -v $(pwd):/workspace \
+  claude-bitbucket-pipe
 ```
 
 ## Troubleshooting
@@ -326,67 +399,63 @@ docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
 ### Common Issues
 
 1. **Authentication Errors**
-   - Verify API keys are correctly set
-   - Check token permissions
+   ```
+   Error: No authentication configured
+   ```
+   Solution: Ensure `ANTHROPIC_API_KEY` or cloud credentials are set
 
-2. **Timeout Issues**
-   - Increase `TIMEOUT_MINUTES`
-   - Reduce `MAX_TURNS`
+2. **API Access Issues**
+   ```
+   Warning: No access token, using environment data only
+   ```
+   Solution: Add `BITBUCKET_ACCESS_TOKEN` for full API features
 
-3. **API Rate Limits**
-   - Add delays between requests
-   - Use caching where possible
+3. **Module Not Found**
+   ```
+   Error: Cannot find module 'bitbucket'
+   ```
+   Solution: Run `bun install` to install dependencies
 
-4. **Permission Errors**
-   - Ensure `BITBUCKET_ACCESS_TOKEN` has required scopes
-   - Check repository permissions
+4. **Timeout Issues**
+   ```
+   Error: Execution timed out after 10 minutes
+   ```
+   Solution: Increase `TIMEOUT_MINUTES` or reduce `MAX_TURNS`
 
 ### Debug Mode
-Enable verbose logging:
+
+Enable verbose logging for troubleshooting:
+
 ```yaml
-variables:
-  VERBOSE: "true"
+export VERBOSE=true
+export DRY_RUN=true  # Test without making changes
 ```
 
 ## Security Considerations
 
-1. **Secret Management**
-   - Use Bitbucket repository variables for secrets
-   - Never commit API keys to code
-   - Use secured variables for sensitive data
+1. **API Keys**: Always use secured repository variables
+2. **Tool Access**: Restrict tools in production (`BLOCKED_TOOLS`)
+3. **Branch Protection**: Use `AUTO_COMMIT=false` for manual review
+4. **Audit Logging**: Review pipeline logs regularly
+5. **Permissions**: Use minimal required permissions for tokens
 
-2. **Access Control**
-   - Limit pipe permissions with appropriate scopes
-   - Use deployment environments for production
+## Performance Optimization
 
-3. **Tool Restrictions**
-   - Block dangerous tools in production
-   - Review allowed tools regularly
-
-4. **Audit Logging**
-   - Monitor pipeline executions
-   - Review Claude's actions
+1. **Cache Dependencies**: Use pipeline caches for `node_modules`
+2. **Limit Turns**: Set appropriate `MAX_TURNS` for your use case
+3. **Tool Restrictions**: Block unnecessary tools to reduce processing
+4. **Parallel Steps**: Run independent operations in parallel
 
 ## Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## License
-
-MIT License - See LICENSE file for details
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## Support
 
-For issues and questions:
-- Create an issue in the repository
-- Check existing documentation
-- Review pipeline logs for errors
+- **Issues**: [GitHub Issues](https://github.com/tsadrakula/Claude_Code_Bitbucket/issues)
+- **Documentation**: This file and README.md
+- **Examples**: See `examples/` directory
 
-## Acknowledgments
+## License
 
-This implementation is inspired by the official [Claude Code GitHub Action](https://github.com/anthropics/claude-code-action) and adapted for Bitbucket Pipelines.
+MIT License - See [LICENSE](LICENSE) file for details.

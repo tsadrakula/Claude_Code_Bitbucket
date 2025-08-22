@@ -1,268 +1,402 @@
 # Claude Code for Bitbucket Pipelines
 
-AI-powered code assistance for Bitbucket Pipelines, powered by Claude. This is the Bitbucket equivalent of the [GitHub Actions Claude Code](https://github.com/anthropics/claude-code-action) implementation.
+Bring Claude's AI-powered code assistance directly into your Bitbucket Pipelines workflows. This pipe enables automated code reviews, intelligent PR responses, and AI-driven development tasks within your CI/CD pipeline.
 
-## Features
+## 🚀 Quick Start
 
-- 🤖 **AI Code Reviews** - Automatic PR reviews with actionable feedback
-- 💬 **Interactive Assistance** - Respond to `@claude` mentions in PR comments
-- 🔄 **Multiple Modes** - Tag, Agent, and Review modes for different workflows
-- 🔐 **Multi-Provider Support** - Anthropic API, AWS Bedrock, or Google Vertex AI
-- 🌿 **Branch Management** - Automatic branch creation and PR submission
-- 🛠️ **Tool Configuration** - Fine-grained control over Claude's capabilities
-- 📊 **Comprehensive Analysis** - Security audits, performance reviews, and more
-
-## Quick Start
-
-### Option 1: Interactive Setup (Recommended)
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/claude-bitbucket-pipe.git
-cd claude-bitbucket-pipe
-
-# Install dependencies
-bun install
-
-# Run interactive setup
-bun run setup
-```
-
-This will guide you through:
-- Installing Claude Code CLI
-- Configuring Bitbucket access
-- Setting up API credentials
-- Creating pipeline templates
-
-### Option 2: Manual Setup
-
-#### 1. Add to your `bitbucket-pipelines.yml`:
+### Copy this to your `bitbucket-pipelines.yml`:
 
 ```yaml
+# Basic setup - Claude responds to @claude mentions in PRs
 pipelines:
   pull-requests:
     '**':
       - step:
-          name: Claude Code Review
+          name: Claude Code Assistant
+          image: oven/bun:latest
           script:
-            - pipe: claudecode/bitbucket-pipe:latest
-              variables:
-                MODE: review
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - bun run src/main.ts
           services:
             - docker
 ```
 
-### 2. Configure Repository Variables:
+### Add these Repository Variables:
 
-Go to Repository Settings → Repository variables and add:
-- `ANTHROPIC_API_KEY` - Your Anthropic API key
-- `BITBUCKET_ACCESS_TOKEN` - App password for PR operations (optional but recommended)
+1. Go to **Repository settings** → **Repository variables**
+2. Add your API key (choose one):
+   - `ANTHROPIC_API_KEY` - For Anthropic Claude API
+   - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` - For AWS Bedrock
+   - `GCP_PROJECT_ID` + `GCP_SERVICE_ACCOUNT_KEY` - For Google Vertex AI
 
-### 3. Enable Pipelines:
+### That's it! 🎉
 
-Go to Repository Settings → Pipelines → Settings and enable pipelines.
+Now Claude will respond when you:
+- Create a PR with `@claude` in the description
+- Comment `@claude` on any PR
+- Tag `@claude` for code reviews
 
-## Usage Examples
+## 📦 Installation Options
 
-### PR Comment Triggers
+### Option 1: Direct Clone (Simplest)
 
-Mention `@claude` in a PR comment to get assistance:
+Add to your `bitbucket-pipelines.yml`:
 
 ```yaml
 pipelines:
   pull-requests:
     '**':
       - step:
-          name: Claude Assistant
+          name: Claude Code Assistant
+          image: oven/bun:latest
           script:
-            - pipe: claudecode/bitbucket-pipe:latest
-              variables:
-                MODE: tag
-                TRIGGER_PHRASE: "@claude"
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-                BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe
+            - bun install
+            - bun run build
+            - bun run src/main.ts
+          services:
+            - docker
 ```
 
-Then comment on a PR:
-> @claude Can you review this code for security vulnerabilities?
-
-### Automated Security Audits
+### Option 2: Docker Image (Fastest)
 
 ```yaml
 pipelines:
-  schedules:
-    - cron: "0 0 * * MON"
-      pattern: main
-      pipelines:
-        - step:
-            name: Weekly Security Audit
-            script:
-              - pipe: claudecode/bitbucket-pipe:latest
-                variables:
-                  MODE: agent
-                  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-                  CLAUDE_AGENT_PROMPT: "Perform security audit"
+  pull-requests:
+    '**':
+      - step:
+          name: Claude Code Assistant
+          image: tsadrakula/claude-bitbucket-pipe:latest
+          script:
+            - /app/run.sh
 ```
 
-### Manual Code Improvements
+### Option 3: Custom Pipe (Advanced)
+
+1. Fork this repository
+2. Customize as needed
+3. Build and publish to your workspace:
+
+```bash
+# Clone and customize
+git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git
+cd Claude_Code_Bitbucket
+
+# Install and build
+bun install
+bun run build
+
+# Build Docker image
+docker build -t your-workspace/claude-code-pipe:latest .
+
+# Push to your registry
+docker push your-workspace/claude-code-pipe:latest
+```
+
+Then use in your pipeline:
+
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude Code Assistant
+          script:
+            - pipe: your-workspace/claude-code-pipe:latest
+              variables:
+                MODE: "tag"
+                TRIGGER_PHRASE: "@claude"
+```
+
+## ⚙️ Configuration Examples
+
+### PR Review Mode (Automatic Reviews)
+
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Automatic PR Review
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - MODE=experimental-review bun run src/main.ts
+```
+
+### Agent Mode (Autonomous Tasks)
 
 ```yaml
 pipelines:
   custom:
-    improve-code:
+    claude-agent:
       - step:
-          name: Code Improvements
+          name: Claude Agent
+          image: oven/bun:latest
           script:
-            - pipe: claudecode/bitbucket-pipe:latest
-              variables:
-                MODE: agent
-                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-                AUTO_COMMIT: "true"
-                AUTO_PR: "true"
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - MODE=agent TASK="Refactor authentication module" bun run src/main.ts
 ```
 
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `MODE` | Execution mode: `tag`, `agent`, `experimental-review` | `tag` | No |
-| `TRIGGER_PHRASE` | Phrase that triggers Claude | `@claude` | No |
-| `ANTHROPIC_API_KEY` | Anthropic API key | - | Yes* |
-| `MODEL` | Claude model to use | `claude-3-5-sonnet-20241022` | No |
-| `MAX_TURNS` | Maximum conversation turns | `30` | No |
-| `TIMEOUT_MINUTES` | Timeout in minutes | `10` | No |
-| `ALLOWED_TOOLS` | Comma-separated allowed tools | - | No |
-| `BLOCKED_TOOLS` | Comma-separated blocked tools | - | No |
-| `BRANCH_PREFIX` | Prefix for created branches | `claude/` | No |
-| `AUTO_COMMIT` | Auto-commit changes | `false` | No |
-| `AUTO_PR` | Auto-create pull request | `false` | No |
-| `BITBUCKET_ACCESS_TOKEN` | Bitbucket API token | - | No |
-
-*One authentication method required (Anthropic, AWS, or GCP)
-
-### Authentication Options
-
-#### Anthropic API
-```yaml
-ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-```
-
-#### AWS Bedrock
-```yaml
-AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-AWS_REGION: us-east-1
-MODEL: anthropic.claude-3-5-sonnet-20241022-v2
-```
-
-#### Google Vertex AI
-```yaml
-GCP_PROJECT_ID: ${GCP_PROJECT_ID}
-GCP_SERVICE_ACCOUNT_KEY: ${GCP_SERVICE_ACCOUNT_KEY}
-GCP_REGION: us-central1
-MODEL: claude-3-5-sonnet@20241022
-```
-
-## Modes
-
-### Tag Mode (Default)
-Responds to trigger phrases in comments or commits.
-
-### Agent Mode
-Automated execution for scheduled or manual runs.
-
-### Review Mode (Experimental)
-Automatic code review on PR events.
-
-## Advanced Features
-
-### Tool Configuration
-
-Control which tools Claude can use:
+### Custom Trigger Phrase
 
 ```yaml
-ALLOWED_TOOLS: "Read,Write,Edit,Grep"
-BLOCKED_TOOLS: "Bash,Computer"
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude with Custom Trigger
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - TRIGGER_PHRASE="@ai-assist" bun run src/main.ts
 ```
 
-### Branch Management
+## 📋 Environment Variables
 
-Automatically create branches and PRs:
+### Required (Choose One Authentication Method)
+
+| Variable | Description |
+|----------|-------------|
+| **Anthropic API** | |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+| **AWS Bedrock** | |
+| `AWS_ACCESS_KEY_ID` | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key |
+| `AWS_REGION` | AWS region (default: us-east-1) |
+| **Google Vertex AI** | |
+| `GCP_PROJECT_ID` | Google Cloud project ID |
+| `GCP_SERVICE_ACCOUNT_KEY` | Service account JSON key |
+| `GCP_REGION` | GCP region (default: us-central1) |
+
+### Optional Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MODE` | Operation mode: `tag`, `agent`, or `experimental-review` | `tag` |
+| `TRIGGER_PHRASE` | Phrase to trigger Claude in comments | `@claude` |
+| `MODEL` | Claude model to use | `claude-3-5-sonnet-20241022` |
+| `MAX_TURNS` | Maximum conversation turns | `30` |
+| `TIMEOUT_MINUTES` | Execution timeout | `10` |
+| `BRANCH_PREFIX` | Prefix for created branches | `claude/` |
+| `AUTO_COMMIT` | Automatically commit changes | `false` |
+| `AUTO_PR` | Automatically create PRs | `false` |
+| `VERBOSE` | Enable verbose logging | `false` |
+| `DRY_RUN` | Test without making changes | `false` |
+
+## 💬 Usage Examples
+
+### Ask Claude to Review Code
+
+In a PR comment:
+```
+@claude Can you review this authentication implementation for security issues?
+```
+
+### Request Code Improvements
+
+```
+@claude Please add input validation to the user registration function
+```
+
+### Get Implementation Suggestions
+
+```
+@claude How would you implement rate limiting for this API endpoint?
+```
+
+### Fix Issues
+
+```
+@claude The tests are failing. Can you help fix them?
+```
+
+## 🔧 Advanced Setup
+
+### Using AWS Bedrock
 
 ```yaml
-AUTO_COMMIT: "true"
-AUTO_PR: "true"
-BRANCH_PREFIX: "claude/fix-"
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude via AWS Bedrock
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - |
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              export AWS_REGION="us-east-1"
+              export MODEL="anthropic.claude-3-5-sonnet-20241022-v2:0"
+              bun run src/main.ts
 ```
 
-## Development
+### Using Google Vertex AI
 
-### Prerequisites
-- [Bun](https://bun.sh) >= 1.2.11
-- Docker (for building images)
-- TypeScript knowledge
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude via Google Vertex
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - |
+              export GCP_PROJECT_ID=$GCP_PROJECT_ID
+              export GCP_SERVICE_ACCOUNT_KEY=$GCP_SERVICE_ACCOUNT_KEY
+              export GCP_REGION="us-central1"
+              export MODEL="claude-3-5-sonnet-v2@20241022"
+              bun run src/main.ts
+```
 
-### Setup
+### Complete Pipeline with Multiple Triggers
+
+```yaml
+pipelines:
+  # Automatic PR reviews
+  pull-requests:
+    '**':
+      - step:
+          name: Claude PR Assistant
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - bun run src/main.ts
+  
+  # Manual agent tasks
+  custom:
+    run-claude-agent:
+      - variables:
+          - name: TASK
+            default: "Analyze and improve code quality"
+      - step:
+          name: Claude Agent Task
+          image: oven/bun:latest
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - MODE=agent TASK="$TASK" bun run src/main.ts
+  
+  # Scheduled maintenance
+  branches:
+    main:
+      - step:
+          name: Weekly Code Review
+          image: oven/bun:latest
+          trigger: manual
+          script:
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe && bun install && bun run build
+            - MODE=agent TASK="Review code for potential improvements" bun run src/main.ts
+```
+
+## 🚀 Development
+
+### Local Setup
+
 ```bash
+# Clone the repository
+git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git
+cd Claude_Code_Bitbucket
+
 # Install dependencies
 bun install
-
-# Run type checking
-bun run typecheck
 
 # Run tests
 bun test
 
-# Build
+# Build the project
 bun run build
 
-# Format code
-bun run format
-```
-
-### Testing Locally
-```bash
-# Set environment variables
-export BITBUCKET_WORKSPACE=your-workspace
-export BITBUCKET_REPO_SLUG=your-repo
-export ANTHROPIC_API_KEY=your-key
-
-# Run the pipe
-bun run src/index.ts
+# Test locally with your Bitbucket repo
+export BITBUCKET_WORKSPACE="your-workspace"
+export BITBUCKET_REPO_SLUG="your-repo"
+export ANTHROPIC_API_KEY="your-api-key"
+bun run dev
 ```
 
 ### Building Docker Image
+
 ```bash
+# Build image
 docker build -t claude-bitbucket-pipe .
+
+# Test locally
+docker run --env-file .env claude-bitbucket-pipe
+
+# Push to registry
+docker tag claude-bitbucket-pipe your-registry/claude-bitbucket-pipe:latest
+docker push your-registry/claude-bitbucket-pipe:latest
 ```
 
-## Architecture
+## 🔒 Security Best Practices
 
-Built with TypeScript and Bun runtime, mirroring the GitHub Actions implementation:
+1. **API Keys**: Always use Bitbucket's secured repository variables
+2. **Permissions**: Use repository access tokens with minimal required permissions
+3. **Review**: Always review Claude's suggestions before merging
+4. **Branches**: Use `BRANCH_PREFIX` to isolate Claude's changes
+5. **Dry Run**: Test with `DRY_RUN=true` first
 
-- **TypeScript** for type safety and maintainability
-- **Bun** for fast execution and native TypeScript support
-- **Modular design** with separate modes and providers
-- **Bitbucket API v2** integration
-- **Docker** containerization for pipeline execution
+## 🐛 Troubleshooting
 
-## Contributing
+### Claude not responding?
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+1. Check the trigger phrase matches (default: `@claude`)
+2. Verify API key is set in repository variables
+3. Check pipeline logs: Repository → Pipelines → View logs
 
-## License
+### Authentication errors?
+
+```bash
+# Test API key locally
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01"
+```
+
+### Timeout issues?
+
+```yaml
+# Increase timeout in pipeline
+script:
+  - TIMEOUT_MINUTES=30 bun run src/main.ts
+```
+
+### Need help?
+
+- 📖 Read the [technical documentation](./CLAUDE.md)
+- 🐛 [Report an issue](https://github.com/tsadrakula/Claude_Code_Bitbucket/issues)
+- 💬 Check [existing issues](https://github.com/tsadrakula/Claude_Code_Bitbucket/issues)
+- 🚀 See [example configurations](./examples/)
+
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Support
+## 🤝 Contributing
 
-- Create an issue for bugs or feature requests
-- Check [CLAUDE.md](CLAUDE.md) for detailed documentation
-- Review pipeline logs for troubleshooting
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new features
+4. Submit a pull request
 
-## Acknowledgments
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-This implementation is based on the official [Claude Code GitHub Action](https://github.com/anthropics/claude-code-action) and adapted for Bitbucket Pipelines.
+---
+
+<div align="center">
+  <strong>Built with ❤️ for Bitbucket teams using Claude</strong>
+  <br>
+  <sub>Powered by Anthropic's Claude and Bitbucket Pipelines</sub>
+</div>

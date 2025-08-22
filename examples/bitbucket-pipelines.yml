@@ -1,0 +1,158 @@
+# Bitbucket Pipelines Configuration for Claude Code
+# 
+# This is a template file. Copy this to your repository's root directory
+# and customize based on your needs.
+#
+# SETUP INSTRUCTIONS:
+# 1. Copy this file to your repository root
+# 2. Go to Repository Settings → Repository variables
+# 3. Add your API key (ANTHROPIC_API_KEY, AWS credentials, or GCP credentials)
+# 4. Commit the file to enable pipelines
+# 5. Claude will respond to @claude mentions in PRs
+
+image: oven/bun:latest
+
+pipelines:
+  # Automatic PR assistant - responds to @claude mentions
+  pull-requests:
+    '**':
+      - step:
+          name: Claude PR Assistant
+          script:
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
+            - cd .claude-pipe
+            - bun install --production
+            - bun run build
+            
+            # Run Claude in tag mode (responds to mentions)
+            - |
+              export MODE=${MODE:-tag}
+              export TRIGGER_PHRASE=${TRIGGER_PHRASE:-@claude}
+              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              bun run src/main.ts
+          services:
+            - docker
+          caches:
+            - node
+
+  # Manual agent tasks - run Claude for specific tasks
+  custom:
+    claude-task:
+      - variables:
+          - name: TASK
+            default: "Review code quality and suggest improvements"
+          - name: AUTO_COMMIT
+            default: "false"
+            allowed-values:
+              - "true"
+              - "false"
+          - name: AUTO_PR
+            default: "false"
+            allowed-values:
+              - "true"
+              - "false"
+      - step:
+          name: Run Claude Agent
+          script:
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
+            - cd .claude-pipe
+            - bun install --production
+            - bun run build
+            
+            # Run Claude in agent mode
+            - |
+              export MODE=agent
+              export TASK="${TASK}"
+              export AUTO_COMMIT="${AUTO_COMMIT}"
+              export AUTO_PR="${AUTO_PR}"
+              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              bun run src/main.ts
+          services:
+            - docker
+          caches:
+            - node
+
+    # Security audit pipeline
+    security-audit:
+      - step:
+          name: Claude Security Audit
+          script:
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
+            - cd .claude-pipe
+            - bun install --production
+            - bun run build
+            
+            # Run security audit
+            - |
+              export MODE=agent
+              export TASK="Perform a comprehensive security audit of the codebase. Check for vulnerabilities, insecure patterns, and potential security issues."
+              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              bun run src/main.ts
+          services:
+            - docker
+          caches:
+            - node
+
+    # Code quality review
+    code-review:
+      - step:
+          name: Claude Code Quality Review
+          script:
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
+            - cd .claude-pipe
+            - bun install --production
+            - bun run build
+            
+            # Run code quality review
+            - |
+              export MODE=experimental-review
+              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              bun run src/main.ts
+          services:
+            - docker
+          caches:
+            - node
+
+  # Scheduled tasks
+  branches:
+    main:
+      - step:
+          name: Weekly Maintenance
+          trigger: manual  # Change to 'automatic' if you want scheduled runs
+          script:
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
+            - cd .claude-pipe
+            - bun install --production
+            - bun run build
+            
+            # Run maintenance tasks
+            - |
+              export MODE=agent
+              export TASK="Review recent changes for code quality, identify technical debt, and suggest improvements"
+              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+              bun run src/main.ts
+          services:
+            - docker
+          caches:
+            - node
+
+# Optional: Define caches for faster builds
+definitions:
+  caches:
+    node: .claude-pipe/node_modules
+
+# Optional: Configure services
+definitions:
+  services:
+    docker:
+      memory: 2048  # Increase if needed for larger tasks
