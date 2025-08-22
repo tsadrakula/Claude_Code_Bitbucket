@@ -106,8 +106,47 @@ export class TagMode implements Mode {
         userRequest = "Please review this pull request and provide feedback";
       }
 
-      // Build comprehensive PR context
-      prompt = `
+      // Classify request type
+      const requestType = config.autoDetectActionable ? classifyRequest(userRequest) : "informational";
+      
+      // Build appropriate prompt based on request type
+      if (requestType === "actionable") {
+        // Action-oriented prompt for implementing changes
+        prompt = `
+# Pull Request Context
+
+**PR #${context.pullRequest.id}:** ${context.pullRequest.title}
+**Author:** ${context.pullRequest.author}
+**Source Branch:** ${context.pullRequest.sourceBranch}
+**Target Branch:** ${context.pullRequest.destinationBranch}
+
+## PR Description
+${context.pullRequest.description || "No description provided"}
+
+## User Request
+${userRequest}
+${
+  inlineContext 
+    ? `\n## Inline Comment Context\nThe user commented on **${inlineContext.path}** (lines ${inlineContext.from || 'start'}-${inlineContext.to || 'end'})\n` 
+    : ""
+}
+## Instructions
+You are working directly on the source branch (${context.pullRequest.sourceBranch}) of this PR.
+The user has made an actionable request that requires changes to the code.
+
+1. Read the relevant files to understand the current implementation
+2. Make the requested changes directly using the Edit or MultiEdit tools
+3. After making changes, commit them to the branch:
+   - Run \`git add -A\` to stage all changes
+   - Run \`git commit -m "Your commit message"\` to commit
+   - Run \`git push\` to push changes to the remote branch
+
+Important: You MUST make the changes the user requested and commit them to the PR branch.
+The changes will automatically appear in the pull request once pushed.
+`;
+      } else {
+        // Review-oriented prompt for informational requests
+        prompt = `
 # Pull Request Context
 
 **PR #${context.pullRequest.id}:** ${context.pullRequest.title}
@@ -138,6 +177,7 @@ You are reviewing a pull request in Bitbucket. ${
 
 Analyze the changes and provide helpful feedback based on the user's request. Be specific, actionable, and constructive in your response.
 `;
+      }
       
       // Try to fetch PR diff and branch info if we have API access
       if (config.bitbucketAccessToken && config.prId) {
@@ -207,14 +247,14 @@ You are assisting with a Bitbucket repository. Provide help based on the current
       logger.info(`Request classified as: ${requestType}`);
       
       if (requestType === "actionable") {
-        // Allow editing for actionable requests
+        // Allow editing and git operations for actionable requests
         allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "Bash", "LS", "Glob"];
         blockedTools = ["Computer"];
         logger.info("Actionable request detected - enabling edit tools");
       } else {
         // Read-only for informational requests
         allowedTools = ["Read", "Grep"];
-        blockedTools = ["Write", "Edit", "MultiEdit", "Computer"];
+        blockedTools = ["Write", "Edit", "MultiEdit", "Bash", "Computer"];
         logger.info("Informational request detected - using read-only tools");
       }
     }
