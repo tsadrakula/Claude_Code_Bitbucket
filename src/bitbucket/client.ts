@@ -129,8 +129,8 @@ export class BitbucketClient {
       }
       
       // Log what we're about to send
+      // Note: Despite docs showing 'type' as required, the API rejects it with "extra keys not allowed"
       const requestBody = {
-        type: "pullrequest_comment",
         content: {
           raw: content
         }
