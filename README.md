@@ -29,11 +29,21 @@ pipelines:
 ### Add these Repository Variables:
 
 1. Go to **Repository settings** → **Repository variables**
-2. **REQUIRED for PR comments** (choose one format):
-   - `BITBUCKET_ACCESS_TOKEN` - Set to `username:app_password` format ([Create app password here](https://bitbucket.org/account/settings/app-passwords/))
-   - OR set both:
-     - `BITBUCKET_USERNAME` - Your Bitbucket username
-     - `BITBUCKET_APP_PASSWORD` - Your app password
+2. **REQUIRED for PR comments** (choose one option):
+   
+   **Option A: Repository Access Token (Recommended)**
+   - Go to Repository settings → Access tokens → Create access token
+   - Name: "Claude Code"
+   - Permissions: Pull requests (write), Repositories (read)
+   - Set `BITBUCKET_ACCESS_TOKEN` = `x-token-auth:your_token_here`
+   
+   **Option B: App Password**
+   - `BITBUCKET_ACCESS_TOKEN` = `username:app_password` ([Create app password](https://bitbucket.org/account/settings/app-passwords/))
+   
+   **Option C: Separate Variables**
+   - `BITBUCKET_USERNAME` = Your username
+   - `BITBUCKET_APP_PASSWORD` = Your app password
+
 3. Add your Claude API key (choose one):
    - `ANTHROPIC_API_KEY` - For Anthropic Claude API
    - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` - For AWS Bedrock
@@ -447,16 +457,27 @@ script:
   - TIMEOUT_MINUTES=30 bun start
 ```
 
-### Setting up Bitbucket App Password?
+### Setting up Bitbucket Authentication?
 
+**Recommended: Repository Access Token**
+1. Go to Repository settings → Security → Access tokens
+2. Click "Create access token"
+3. Name: "Claude Code"
+4. Permissions:
+   - Pull requests: Write
+   - Repositories: Read
+5. Copy the token
+6. Set `BITBUCKET_ACCESS_TOKEN` = `x-token-auth:TOKEN_HERE`
+
+**Alternative: App Password**
 1. Go to [Bitbucket App Passwords](https://bitbucket.org/account/settings/app-passwords/)
 2. Click "Create app password"
 3. Label: "Claude Code"
-4. Permissions needed:
+4. Permissions:
    - Pull requests: Read and Write
    - Repositories: Read
-5. Copy the generated password
-6. Set `BITBUCKET_ACCESS_TOKEN` to `yourusername:generated_password`
+5. Copy the password
+6. Set `BITBUCKET_ACCESS_TOKEN` = `yourusername:password_here`
 
 ### Need help?
 
