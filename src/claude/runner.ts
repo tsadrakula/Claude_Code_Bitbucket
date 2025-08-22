@@ -87,8 +87,21 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       logger.warning("⚠️ No authentication configured - Claude may not work!");
     }
     
+    // Test Claude CLI is working
+    try {
+      const { execSync } = await import("child_process");
+      const version = execSync(`${claudeBin} --version`, { encoding: "utf-8" });
+      logger.info(`Claude CLI version: ${version.trim()}`);
+    } catch (e: any) {
+      logger.error(`Failed to run claude --version: ${e.message}`);
+      logger.error(`Claude binary might not be working correctly at: ${claudeBin}`);
+    }
+    
     // Spawn Claude process
-    logger.debug(`Running command: ${claudeBin} ${args.join(" ")}`);
+    console.log(`[DEBUG] Running command: ${claudeBin} ${args.join(" ")}`);
+    console.log(`[DEBUG] Working directory: ${process.cwd()}`);
+    console.log(`[DEBUG] Claude binary path: ${claudeBin}`);
+    
     const claudeProcess = spawn(claudeBin, args, {
       env,
       cwd: process.cwd(),
@@ -316,10 +329,9 @@ function prepareEnvironment(config: PipeConfig): Record<string, string> {
 }
 
 function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
+  // Start with minimal args to test
   const args: string[] = [
-    "-p", // Pipe mode
-    "--verbose",
-    "--output-format", "stream-json"
+    "-p" // Pipe mode
   ];
   
   // Add model
@@ -327,28 +339,16 @@ function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
     args.push("--model", config.model);
   }
   
+  // Add output format
+  args.push("--output-format", "stream-json");
+  
   // Add max turns
   if (config.maxTurns > 0) {
     args.push("--max-turns", config.maxTurns.toString());
   }
   
-  // Add allowed tools
-  if (config.allowedTools && config.allowedTools.length > 0) {
-    args.push("--allowed-tools", config.allowedTools.join(","));
-  }
-  
-  // Add blocked tools
-  if (config.blockedTools && config.blockedTools.length > 0) {
-    args.push("--disallowed-tools", config.blockedTools.join(","));
-  }
-  
-  // Add MCP config if available
-  if (mcpConfigFile) {
-    args.push("--mcp-config", mcpConfigFile);
-  }
-  
-  // Note: Custom instructions/system prompt would go here if supported
-  // The config doesn't currently have a customInstructions field
+  // Log what args we're using
+  console.log("[DEBUG] Claude args:", args);
   
   return args;
 }
