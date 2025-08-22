@@ -3,6 +3,7 @@ import type { PipeConfig, BitbucketContext } from "../../types/config";
 import { logger } from "../../utils/logger";
 import { classifyRequest } from "../../utils/request-classifier";
 import { BitbucketAPI } from "../../bitbucket/api";
+import { BitbucketClient } from "../../bitbucket/client";
 
 export class ReviewMode implements Mode {
   name = "experimental-review";
@@ -69,10 +70,12 @@ export class ReviewMode implements Mode {
                 to: comment.inline.to || comment.inline.from,
               };
               
-              // Track parent for threading
-              if (comment.parent) {
-                parentCommentId = comment.parent.id;
-              }
+              // The comment that triggered Claude becomes the parent for the reply
+              parentCommentId = comment.id;
+              logger.info(`Setting parent comment ID for reply: ${parentCommentId}`);
+            } else {
+              // For top-level comments, also use the triggering comment as parent
+              parentCommentId = comment.id;
             }
             
             break;
@@ -147,6 +150,20 @@ ${userRequest
 
 Focus on the changes in this pull request and provide constructive feedback.
 `;
+
+    // Add PR branch info if available
+    if (config.bitbucketAccessToken && config.prId) {
+      try {
+        const client = new BitbucketClient(config);
+        const branchInfo = await client.getPullRequestBranch(config.prId);
+        if (branchInfo.source) {
+          prompt += `\n## PR Branch Information\n- Source Branch: ${branchInfo.source}\n- Target Branch: ${branchInfo.destination || 'main'}\n`;
+          prompt += `\nNote: You are working on the source branch (${branchInfo.source}) of this PR.\n`;
+        }
+      } catch (error) {
+        logger.warning("Failed to fetch PR branch info:", error);
+      }
+    }
 
     // Set tools based on request type and configuration
     let allowedTools: string[];

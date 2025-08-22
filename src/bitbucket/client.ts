@@ -1,6 +1,7 @@
 import { Bitbucket } from "bitbucket";
 import type { PipeConfig } from "../types/config";
 import { logger } from "../utils/logger";
+import { BitbucketSourceAPI } from "./source-api";
 
 /**
  * Creates and configures a Bitbucket API client
@@ -9,9 +10,11 @@ import { logger } from "../utils/logger";
 export class BitbucketClient {
   private client: InstanceType<typeof Bitbucket>;
   private config: PipeConfig;
+  private sourceAPI: BitbucketSourceAPI;
 
   constructor(config: PipeConfig) {
     this.config = config;
+    this.sourceAPI = new BitbucketSourceAPI(config);
 
     // Initialize Bitbucket client with authentication if available
     const clientOptions: any = {
@@ -354,5 +357,36 @@ export class BitbucketClient {
       },
       language: process.env.BITBUCKET_PROJECT_LANGUAGE || "unknown",
     };
+  }
+
+  /**
+   * Source API Methods - For file operations
+   */
+  
+  async getFileContent(branch: string, path: string): Promise<string | null> {
+    return this.sourceAPI.getFileContent(branch, path);
+  }
+
+  async updateFile(
+    branch: string,
+    path: string,
+    content: string,
+    message: string,
+    author?: { name: string; email: string }
+  ): Promise<{ commit?: string; error?: string }> {
+    return this.sourceAPI.updateFile(branch, path, content, message, author);
+  }
+
+  async createCommit(
+    branch: string,
+    changes: Array<{ path: string; content: string; action: 'create' | 'update' | 'delete' }>,
+    message: string,
+    author?: { name: string; email: string }
+  ): Promise<{ commit?: string; error?: string }> {
+    return this.sourceAPI.createCommit(branch, changes, message, author);
+  }
+
+  async getPullRequestBranch(prId: number): Promise<{ source?: string; destination?: string }> {
+    return this.sourceAPI.getPullRequestBranch(prId);
   }
 }

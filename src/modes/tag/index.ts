@@ -1,6 +1,7 @@
 import type { Mode } from "../index";
 import type { PipeConfig, BitbucketContext } from "../../types/config";
 import { BitbucketAPI } from "../../bitbucket/api";
+import { BitbucketClient } from "../../bitbucket/client";
 import { logger } from "../../utils/logger";
 import { classifyRequest } from "../../utils/request-classifier";
 
@@ -74,10 +75,13 @@ export class TagMode implements Mode {
                   to: comment.inline.to || comment.inline.from,
                 };
                 
-                // If this is a reply, track the parent
-                if (comment.parent) {
-                  parentCommentId = comment.parent.id;
-                }
+                // The comment that triggered Claude becomes the parent for the reply
+                parentCommentId = comment.id;
+                logger.info(`Setting parent comment ID for reply: ${parentCommentId}`);
+              } else {
+                // For top-level comments, also use the triggering comment as parent
+                // This ensures Claude replies to the comment that mentioned it
+                parentCommentId = comment.id;
               }
               
               triggerSource = "comment";
@@ -133,16 +137,26 @@ You are reviewing a pull request in Bitbucket. ${
 Analyze the changes and provide helpful feedback based on the user's request. Be specific, actionable, and constructive in your response.
 `;
       
-      // Try to fetch PR diff if we have API access
+      // Try to fetch PR diff and branch info if we have API access
       if (config.bitbucketAccessToken && config.prId) {
         try {
           const api = new BitbucketAPI(config);
+          
+          // Get PR diff
           const diff = await api.getPullRequestDiff(config.prId);
           if (diff) {
             prompt += `\n## PR Diff\n\`\`\`diff\n${diff}\n\`\`\`\n`;
           }
+          
+          // Get PR branch info for context
+          const client = new BitbucketClient(config);
+          const branchInfo = await client.getPullRequestBranch(config.prId);
+          if (branchInfo.source) {
+            prompt += `\n## PR Branch Information\n- Source Branch: ${branchInfo.source}\n- Target Branch: ${branchInfo.destination || 'main'}\n`;
+            prompt += `\nNote: You are working on the source branch (${branchInfo.source}) of this PR.\n`;
+          }
         } catch (error) {
-          logger.warning("Failed to fetch PR diff:", error);
+          logger.warning("Failed to fetch PR info:", error);
         }
       }
       

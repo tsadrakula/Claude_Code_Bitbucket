@@ -57,6 +57,8 @@ export class BitbucketMcpServer {
             return await this.handleGetPR(args);
           case "bitbucket_get_diff":
             return await this.handleGetDiff(args);
+          case "bitbucket_edit_file":
+            return await this.handleEditFile(args);
           case "pipeline_set_output":
             return await this.handleSetOutput(args);
           case "pipeline_save_state":
@@ -150,6 +152,32 @@ export class BitbucketMcpServer {
             },
           },
           required: ["pr_id"],
+        },
+      },
+      {
+        name: "bitbucket_edit_file",
+        description: "Edit a file directly in the pull request branch via Bitbucket API",
+        inputSchema: {
+          type: "object",
+          properties: {
+            pr_id: {
+              type: "number",
+              description: "Pull request ID",
+            },
+            path: {
+              type: "string",
+              description: "File path to edit",
+            },
+            content: {
+              type: "string",
+              description: "New file content",
+            },
+            message: {
+              type: "string",
+              description: "Commit message",
+            },
+          },
+          required: ["pr_id", "path", "content", "message"],
         },
       },
       {
@@ -247,6 +275,52 @@ export class BitbucketMcpServer {
         {
           type: "text",
           text: diff || "No diff available",
+        },
+      ],
+    };
+  }
+
+  private async handleEditFile(args: any) {
+    const { pr_id, path, content, message } = args;
+    
+    // First get the PR branch info
+    const branchInfo = await this.client.getPullRequestBranch(pr_id);
+    if (!branchInfo.source) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Error: Could not determine PR source branch",
+          },
+        ],
+      };
+    }
+    
+    // Update the file on the PR's source branch
+    const result = await this.client.updateFile(
+      branchInfo.source,
+      path,
+      content,
+      message,
+      { name: "Claude Code", email: "noreply@anthropic.com" }
+    );
+    
+    if (result.error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error updating file: ${result.error}`,
+          },
+        ],
+      };
+    }
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: `File ${path} updated successfully. Commit: ${result.commit}`,
         },
       ],
     };

@@ -351,14 +351,15 @@ The pipe intelligently handles different comment types:
 
 #### Inline Comments
 - Automatically detects inline comments on specific code lines
-- Responds in the same thread for context preservation
-- Tracks parent comment ID for proper threading
-- Includes line context in Claude's prompt
+- **Responds as a reply to the original comment** (fixed threading)
+- Uses the triggering comment as the parent for proper threading
+- Includes line context and file path in Claude's prompt
+- Falls back to top-level comment if line numbers are null
 
 #### Top-level Comments
-- Creates new comment threads for general discussions
+- Replies to the comment that mentioned Claude
+- Maintains conversation thread continuity
 - Suitable for broad PR feedback
-- Can spawn multiple response comments if needed
 
 #### Comment Update Strategies
 
@@ -397,6 +398,32 @@ When MCP servers are enabled, additional Bitbucket-specific tools become availab
 - `bitbucket_get_diff` - Get PR diff
 - `pipeline_set_output` - Set outputs for pipeline
 - `pipeline_save_state` - Save state between steps
+
+## Direct PR Editing via API
+
+### Source API for File Operations
+
+The pipe includes a Source API that allows Claude to edit files directly in pull requests:
+
+```typescript
+// Get file content from PR branch
+const content = await client.getFileContent(branch, path);
+
+// Update file on PR branch
+const result = await client.updateFile(
+  branch,
+  path,
+  newContent,
+  "Fix: Update color to lighter shade",
+  { name: "Claude Code", email: "noreply@anthropic.com" }
+);
+```
+
+Features:
+- **Direct editing**: Claude can modify files directly on the PR's source branch
+- **API-based commits**: Creates proper commits with messages
+- **No local access needed**: Works even when Claude can't access local files
+- **Maintains PR context**: All changes appear in the existing PR
 
 ## API Integration
 

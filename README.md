@@ -281,13 +281,14 @@ Claude automatically detects whether your request is **actionable** (requires co
 | **Informational** | "How does authentication work?" | Provides detailed explanation |
 | **Informational** | "Review this for security issues" | Analyzes and reports findings |
 
-### Inline Comment Support
+### Inline Comment Support (Fixed!)
 
-Claude responds directly to inline comments on specific code lines:
+Claude now properly responds to inline comments:
 
-- **Inline Comments**: Claude replies in the same thread for context
-- **Top-level Comments**: Claude creates new comment for general discussions
-- **Smart Threading**: Maintains conversation context across replies
+- **Proper Threading**: Claude replies directly to YOUR comment (not a new thread)
+- **Context Preservation**: Maintains the conversation in the same thread
+- **Smart Fallback**: Falls back to top-level if line numbers unavailable
+- **Branch Awareness**: Claude knows which branch it's working on
 
 ### Comment Update Strategies
 
