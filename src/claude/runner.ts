@@ -98,9 +98,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     }
     
     // Spawn Claude process
-    console.log(`[DEBUG] Running command: ${claudeBin} ${args.join(" ")}`);
-    console.log(`[DEBUG] Working directory: ${process.cwd()}`);
-    console.log(`[DEBUG] Claude binary path: ${claudeBin}`);
+    logger.debug(`Running command: ${claudeBin} ${args.join(" ")}`);
     
     const claudeProcess = spawn(claudeBin, args, {
       env,
@@ -124,8 +122,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       stderrBuffer += chunkStr;
       stderrOutput += chunkStr;
       
-      // Log immediately for debugging
-      if (chunkStr.trim()) {
+      // Log stderr immediately in verbose mode
+      if (config.verbose && chunkStr.trim()) {
         console.error("CLAUDE STDERR:", chunkStr);
       }
       
@@ -329,9 +327,10 @@ function prepareEnvironment(config: PipeConfig): Record<string, string> {
 }
 
 function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
-  // Start with minimal args to test
   const args: string[] = [
-    "-p" // Pipe mode
+    "-p", // Pipe mode
+    "--verbose", // Required when using stream-json with -p
+    "--output-format", "stream-json"
   ];
   
   // Add model
@@ -339,16 +338,25 @@ function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
     args.push("--model", config.model);
   }
   
-  // Add output format
-  args.push("--output-format", "stream-json");
-  
   // Add max turns
   if (config.maxTurns > 0) {
     args.push("--max-turns", config.maxTurns.toString());
   }
   
-  // Log what args we're using
-  console.log("[DEBUG] Claude args:", args);
+  // Add allowed tools if specified
+  if (config.allowedTools && config.allowedTools.length > 0) {
+    args.push("--allowed-tools", config.allowedTools.join(","));
+  }
+  
+  // Add blocked tools if specified
+  if (config.blockedTools && config.blockedTools.length > 0) {
+    args.push("--disallowed-tools", config.blockedTools.join(","));
+  }
+  
+  // Log what args we're using in verbose mode
+  if (config.verbose) {
+    logger.debug("Claude args:", args);
+  }
   
   return args;
 }
