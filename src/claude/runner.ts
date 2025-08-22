@@ -76,8 +76,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     logger.info(`Full command: claude ${args.join(" ")}`);
     console.log("[DEBUG] Full args array:", args);
     
-    // Post initial comment if we have PR access
-    if (prId && config.bitbucketAccessToken) {
+    // Post initial comment only if streaming is enabled
+    if (prId && config.bitbucketAccessToken && config.enableStreamingComments) {
       await updateCommentStream({
         config,
         prId,
@@ -200,8 +200,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
                   currentContent += content.text;
                   logger.debug("Assistant text:", content.text);
                   
-                  // Update PR comment with partial content
-                  if (prId && config.bitbucketAccessToken) {
+                  // Only update PR comment if streaming is enabled
+                  if (prId && config.bitbucketAccessToken && config.enableStreamingComments) {
                     await updateCommentStream({
                       config,
                       prId,
@@ -312,8 +312,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     
     const executionTime = Date.now() - startTime;
     
-    // Post final comment
-    if (prId && config.bitbucketAccessToken && currentContent) {
+    // Post final comment (always post unless strategy is 'stream' only)
+    if (prId && config.bitbucketAccessToken && currentContent && config.commentUpdateStrategy !== "stream") {
       await updateCommentStream({
         config,
         prId,
@@ -324,6 +324,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         inlineContext,
         parentCommentId
       });
+      logger.success("Posted final Claude response to PR");
     }
     
     return {

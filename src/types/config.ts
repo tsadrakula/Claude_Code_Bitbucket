@@ -44,6 +44,11 @@ export const PipeConfigSchema = z.object({
   // Additional options
   verbose: z.boolean().default(false),
   dryRun: z.boolean().default(false),
+  
+  // Comment handling configuration
+  enableStreamingComments: z.boolean().default(false),
+  autoDetectActionable: z.boolean().default(true),
+  commentUpdateStrategy: z.enum(["stream", "final", "both"]).default("final"),
 });
 
 export type PipeConfig = z.infer<typeof PipeConfigSchema>;
@@ -55,6 +60,13 @@ export interface PrepareResult {
   commentId?: string;
   branch?: string;
   triggerSource?: "description" | "comment" | "commit";
+  inlineContext?: {
+    path: string;
+    from: number;
+    to: number;
+  };
+  parentCommentId?: string;
+  commentType?: "inline" | "top-level" | "jira";  // For future extensibility
 }
 
 export interface BitbucketContext {

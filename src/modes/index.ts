@@ -13,6 +13,12 @@ export interface Mode {
     blockedTools?: string[];
     triggerSource?: "description" | "comment" | "commit";
     commentId?: any;
+    inlineContext?: {
+      path: string;
+      from: number;
+      to: number;
+    };
+    parentCommentId?: string;
   }>;
 }
 

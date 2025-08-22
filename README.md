@@ -242,16 +242,62 @@ pipelines:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| **Core Settings** | | |
 | `MODE` | Operation mode: `tag`, `agent`, or `experimental-review` | `tag` |
 | `TRIGGER_PHRASE` | Phrase to trigger Claude in comments | `@claude` |
 | `MODEL` | Claude model to use | `sonnet` |
 | `MAX_TURNS` | Maximum conversation turns | `30` |
 | `TIMEOUT_MINUTES` | Execution timeout | `10` |
+| **Comment Handling** | | |
+| `ENABLE_STREAMING_COMMENTS` | Show live updates as Claude responds | `false` |
+| `AUTO_DETECT_ACTIONABLE` | Automatically detect and execute actionable requests | `true` |
+| `COMMENT_UPDATE_STRATEGY` | How to post comments: `stream`, `final`, or `both` | `final` |
+| **Repository Settings** | | |
 | `BRANCH_PREFIX` | Prefix for created branches | `claude/` |
 | `AUTO_COMMIT` | Automatically commit changes | `false` |
 | `AUTO_PR` | Automatically create PRs | `false` |
+| **Development** | | |
 | `VERBOSE` | Enable verbose logging | `false` |
 | `DRY_RUN` | Test without making changes | `false` |
+
+## 🧠 Intelligent Features
+
+### Automatic Request Detection
+
+Claude automatically detects whether your request is **actionable** (requires code changes) or **informational** (needs explanation):
+
+| Request Type | Example | Claude's Response |
+|-------------|---------|-------------------|
+| **Actionable** | "Change this color to blue" | Makes the edit directly |
+| **Actionable** | "Fix the bug in login" | Implements the fix |
+| **Actionable** | "Add error handling here" | Adds the code |
+| **Informational** | "What does this function do?" | Explains without editing |
+| **Informational** | "How does authentication work?" | Provides detailed explanation |
+| **Informational** | "Review this for security issues" | Analyzes and reports findings |
+
+### Inline Comment Support
+
+Claude responds directly to inline comments on specific code lines:
+
+- **Inline Comments**: Claude replies in the same thread for context
+- **Top-level Comments**: Claude creates new comment for general discussions
+- **Smart Threading**: Maintains conversation context across replies
+
+### Comment Update Strategies
+
+Control how Claude posts responses with `COMMENT_UPDATE_STRATEGY`:
+
+| Strategy | Behavior | Use Case |
+|----------|----------|----------|
+| `final` (default) | Posts once when complete | Clean PR history |
+| `stream` | Shows live updates only | Real-time feedback |
+| `both` | Updates during + final post | Maximum visibility |
+
+Example configuration for streaming:
+```yaml
+script:
+  - ENABLE_STREAMING_COMMENTS=true COMMENT_UPDATE_STRATEGY=both bun start
+```
 
 ## 💬 Usage Examples
 
@@ -279,6 +325,36 @@ In a PR comment:
 ```
 @claude The tests are failing. Can you help fix them?
 ```
+
+### Inline Code Changes (NEW)
+
+On a specific line in a PR:
+```
+@claude could you change this color to a darker shade of blue?
+```
+Claude will:
+- ✅ Detect this as an actionable request
+- ✅ Make the edit directly
+- ✅ Reply inline to your comment
+
+### Smart Request Handling (NEW)
+
+Informational request:
+```
+@claude What does this authentication function do?
+```
+Claude will:
+- 📖 Explain the function
+- 🚫 Won't make any edits
+
+Actionable request:
+```
+@claude Fix the SQL injection vulnerability in this query
+```
+Claude will:
+- 🔧 Implement the fix
+- ✅ Update the code
+- 💬 Explain the changes
 
 ## 🔧 Advanced Setup
 

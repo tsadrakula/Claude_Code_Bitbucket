@@ -2,6 +2,7 @@ import type { Mode } from "../index";
 import type { PipeConfig, BitbucketContext } from "../../types/config";
 import { BitbucketAPI } from "../../bitbucket/api";
 import { logger } from "../../utils/logger";
+import { classifyRequest } from "../../utils/request-classifier";
 
 export class TagMode implements Mode {
   name = "tag";
@@ -181,11 +182,32 @@ You are assisting with a Bitbucket repository. Provide help based on the current
 `;
     }
 
+    // Classify the request and set tools accordingly
+    let allowedTools: string[] | undefined = config.allowedTools;
+    let blockedTools: string[] | undefined = config.blockedTools;
+
+    if (!config.allowedTools && userRequest && config.autoDetectActionable) {
+      const requestType = classifyRequest(userRequest);
+      logger.info(`Request classified as: ${requestType}`);
+      
+      if (requestType === "actionable") {
+        // Allow editing for actionable requests
+        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "Bash"];
+        blockedTools = ["Computer"];
+        logger.info("Actionable request detected - enabling edit tools");
+      } else {
+        // Read-only for informational requests
+        allowedTools = ["Read", "Grep"];
+        blockedTools = ["Write", "Edit", "MultiEdit", "Computer"];
+        logger.info("Informational request detected - using read-only tools");
+      }
+    }
+
     return {
       prompt,
       files,
-      allowedTools: config.allowedTools,
-      blockedTools: config.blockedTools,
+      allowedTools,
+      blockedTools,
       triggerSource,
       commentId,
       inlineContext,

@@ -40,8 +40,8 @@ async function main(): Promise<void> {
       prompt: prepareResult.prompt,
       prId: config.prId,
       commentId: prepareResult.commentId,
-      inlineContext: (prepareResult as any).inlineContext,
-      parentCommentId: (prepareResult as any).parentCommentId,
+      inlineContext: prepareResult.inlineContext,
+      parentCommentId: prepareResult.parentCommentId,
     });
 
     // Format the conversation turns if needed for logging

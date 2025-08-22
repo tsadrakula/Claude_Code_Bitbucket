@@ -27,22 +27,26 @@ src/
 ├── bitbucket/           # Bitbucket API integration
 │   ├── api.ts           # API wrapper for backward compatibility
 │   ├── client.ts        # BitbucketClient using official SDK
-│   └── comment.ts       # PR comment management
+│   ├── comment.ts       # PR comment management
+│   └── comment-stream.ts # Streaming comment updates (NEW)
 ├── pipelines/           # Pipeline utilities
 │   └── core.ts          # Core utilities (like @actions/core)
 ├── mcp/                 # Model Context Protocol
 │   ├── servers.ts       # MCP server implementation
 │   └── start-server.ts  # MCP server entry point
 ├── modes/               # Operational modes
-│   ├── tag/             # @claude mention mode
+│   ├── tag/             # @claude mention mode (with intelligent detection)
 │   ├── agent/           # Automated/scheduled mode
-│   └── review/          # PR review mode
+│   └── review/          # PR review mode (with dynamic tools)
 ├── claude/              # Claude integration
 │   └── runner.ts        # Claude Code CLI execution
 ├── prepare/             # Preparation workflow
 ├── format/              # Output formatting
 ├── types/               # TypeScript type definitions
 └── utils/               # Utility functions
+    ├── logger.ts        # Logging utilities
+    ├── install-claude.ts # Claude CLI installer
+    └── request-classifier.ts # Intelligent request classification (NEW)
 ```
 
 ## SDK Comparison with GitHub Action
@@ -113,6 +117,8 @@ Available tools:
 - Creates tracking comments (when API available)
 - Full implementation capabilities
 - Most interactive mode
+- **NEW**: Automatically detects actionable vs informational requests
+- **NEW**: Responds inline to inline comments
 
 ### 2. Agent Mode
 - For automated/scheduled runs
@@ -123,10 +129,37 @@ Available tools:
 ### 3. Review Mode (Experimental)
 - Automatic PR reviews
 - Triggered on PR events
-- Read-only tool access
+- **NEW**: Dynamically adjusts tools based on request type
+- **NEW**: Can make edits when actionable requests detected
 - Provides structured feedback
 
 ## Environment Variables
+
+### Complete Configuration Reference
+
+| Category | Variable | Type | Default | Description |
+|----------|----------|------|---------|-------------|
+| **Core** | | | | |
+| | `MODE` | `string` | `tag` | Execution mode: `tag`, `agent`, `experimental-review` |
+| | `TRIGGER_PHRASE` | `string` | `@claude` | Phrase to trigger Claude in comments |
+| | `MODEL` | `string` | `sonnet` | Claude model to use |
+| | `FALLBACK_MODEL` | `string` | `opus` | Fallback model when primary is unavailable |
+| | `MAX_TURNS` | `number` | `30` | Maximum conversation turns |
+| | `TIMEOUT_MINUTES` | `number` | `10` | Execution timeout in minutes |
+| **Comment Handling** | | | | |
+| | `ENABLE_STREAMING_COMMENTS` | `boolean` | `false` | Show live updates as Claude responds |
+| | `AUTO_DETECT_ACTIONABLE` | `boolean` | `true` | Automatically detect actionable requests |
+| | `COMMENT_UPDATE_STRATEGY` | `enum` | `final` | Update strategy: `stream`, `final`, `both` |
+| **Tools** | | | | |
+| | `ALLOWED_TOOLS` | `string[]` | `null` | Comma-separated list of allowed tools |
+| | `BLOCKED_TOOLS` | `string[]` | `null` | Comma-separated list of blocked tools |
+| **Repository** | | | | |
+| | `BRANCH_PREFIX` | `string` | `claude/` | Prefix for created branches |
+| | `AUTO_COMMIT` | `boolean` | `false` | Automatically commit changes |
+| | `AUTO_PR` | `boolean` | `false` | Automatically create pull requests |
+| **Development** | | | | |
+| | `VERBOSE` | `boolean` | `false` | Enable verbose logging |
+| | `DRY_RUN` | `boolean` | `false` | Test mode without making changes |
 
 ### Required Variables
 ```bash
@@ -161,6 +194,11 @@ BLOCKED_TOOLS=Bash,Computer          # Blocked tools
 AUTO_COMMIT=true                     # Auto-commit changes
 AUTO_PR=true                         # Auto-create PRs
 BRANCH_PREFIX=claude/                # Branch name prefix
+
+# Comment Handling (NEW)
+ENABLE_STREAMING_COMMENTS=false     # Show live updates as Claude responds
+AUTO_DETECT_ACTIONABLE=true         # Auto-detect actionable vs informational requests
+COMMENT_UPDATE_STRATEGY=final       # How to post: stream, final, or both
 
 # Authentication
 BITBUCKET_ACCESS_TOKEN=...          # For API operations
@@ -277,6 +315,63 @@ GCP_PROJECT_ID: ${GCP_PROJECT_ID}
 GCP_SERVICE_ACCOUNT_KEY: ${GCP_SERVICE_ACCOUNT_KEY}
 GCP_REGION: us-central1
 MODEL: sonnet  # Note: For Vertex AI, may need specific model IDs
+```
+
+## Intelligent Features
+
+### Request Classification System
+
+The pipe includes an intelligent request classifier that automatically determines whether a user request is actionable or informational:
+
+#### Actionable Requests
+Requests that require code changes are automatically detected and given appropriate tools:
+- Pattern matching for action verbs: change, update, fix, add, remove, etc.
+- Imperative forms: "Make this bigger", "Change to blue"
+- Bug/issue indicators with fix intent
+- Polite requests with action intent: "Could you fix..."
+
+#### Informational Requests
+Requests for information are handled with read-only tools:
+- Questions: what, where, when, why, how
+- Explanations: explain, describe, tell me about
+- Analysis: review, check, inspect (without modification intent)
+- Understanding: clarify, meaning of, purpose of
+
+#### Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AUTO_DETECT_ACTIONABLE` | Enable automatic request classification | `true` |
+| `ALLOWED_TOOLS` | Override automatic tool selection | `null` |
+| `BLOCKED_TOOLS` | Always block specific tools | `["Computer"]` |
+
+### Comment Threading System
+
+The pipe intelligently handles different comment types:
+
+#### Inline Comments
+- Automatically detects inline comments on specific code lines
+- Responds in the same thread for context preservation
+- Tracks parent comment ID for proper threading
+- Includes line context in Claude's prompt
+
+#### Top-level Comments
+- Creates new comment threads for general discussions
+- Suitable for broad PR feedback
+- Can spawn multiple response comments if needed
+
+#### Comment Update Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `final` | Single comment after completion | Clean PR history (default) |
+| `stream` | Live updates during processing | Real-time feedback |
+| `both` | Streaming + final summary | Maximum visibility |
+
+Configuration:
+```bash
+ENABLE_STREAMING_COMMENTS=false     # Enable/disable streaming
+COMMENT_UPDATE_STRATEGY=final       # Choose strategy
 ```
 
 ## Tool Configuration
