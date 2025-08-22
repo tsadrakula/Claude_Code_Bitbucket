@@ -37,7 +37,6 @@ pipelines:
               export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
-              export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start
           services:
             - docker
