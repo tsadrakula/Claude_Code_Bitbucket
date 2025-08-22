@@ -93,7 +93,48 @@ export class ReviewMode implements Mode {
     }
 
     // Build prompt from available environment data
-    let prompt = `
+    let prompt: string;
+    
+    if (userRequest && requestType === "actionable") {
+      // Action-oriented prompt for implementing changes
+      prompt = `
+# Pull Request Context
+
+**PR #${config.prId}:** ${context.pullRequest.title}
+**Author:** ${context.pullRequest.author}
+**Source Branch:** ${context.pullRequest.sourceBranch}
+**Target Branch:** ${context.pullRequest.destinationBranch}
+
+## PR Description
+${context.pullRequest.description || "No description provided"}
+
+## User Request
+${userRequest}
+
+${inlineContext ? `## Inline Comment Context
+The user commented on **${inlineContext.path}** (lines ${inlineContext.from || 'start'}-${inlineContext.to || 'end'})
+` : ""}
+
+## Instructions
+You are working directly on the source branch (${context.pullRequest.sourceBranch}) of this PR. 
+The user has made an actionable request that requires changes to the code.
+
+1. Read the relevant files to understand the current implementation
+2. Make the requested changes directly using the Edit or MultiEdit tools
+3. After making changes, commit them to the branch:
+   - Run \`git add -A\` to stage all changes
+   - Run \`git commit -m "Your commit message"\` to commit
+   - Run \`git push\` to push changes to the remote branch
+
+Important: You MUST make the changes the user requested and commit them to the PR branch.
+The changes will automatically appear in the pull request once pushed.
+
+## PR Diff
+Please check the changes in the pull request to understand what has been modified.
+`;
+    } else {
+      // Review-oriented prompt for informational requests or general reviews
+      prompt = `
 # Pull Request Review
 
 **Title:** ${context.pullRequest.title}
@@ -143,13 +184,12 @@ Please provide a comprehensive code review covering:
 
 ## Instructions
 ${userRequest 
-  ? requestType === "actionable" 
-    ? `The user has made an actionable request. Implement the requested changes directly.`
-    : `The user is asking for information. Provide a detailed explanation without making changes.`
+  ? `The user is asking for information. Provide a detailed explanation without making changes.`
   : "Provide specific, actionable feedback. For each issue found:\n1. Specify the file and line number if possible\n2. Explain the issue clearly\n3. Suggest a concrete improvement\n4. Rate severity: 🔴 Critical | 🟡 Important | 🟢 Minor | 💭 Suggestion"}
 
 Focus on the changes in this pull request and provide constructive feedback.
 `;
+    }
 
     // Add PR branch info if available
     if (config.bitbucketAccessToken && config.prId) {
@@ -176,10 +216,10 @@ Focus on the changes in this pull request and provide constructive feedback.
     } else if (userRequest && config.autoDetectActionable) {
       // Auto-detect based on request type
       if (requestType === "actionable") {
-        // Allow editing for actionable requests
-        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "LS", "Glob"];
+        // Allow editing and git operations for actionable requests
+        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "LS", "Glob", "Bash"];
         blockedTools = ["Computer"];  // Only block Computer, allow Bash for git operations
-        logger.info("Actionable request detected - enabling edit tools");
+        logger.info("Actionable request detected - enabling edit tools and git operations");
       } else {
         // Read-only for informational requests
         allowedTools = ["Read", "Grep"];
