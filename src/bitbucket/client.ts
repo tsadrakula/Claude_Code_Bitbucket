@@ -22,12 +22,23 @@ export class BitbucketClient {
     };
 
     // Add authentication if available
+    // Bitbucket uses Basic Auth with username and app password
     if (config.bitbucketAccessToken) {
-      clientOptions.auth = {
-        token: config.bitbucketAccessToken,
-      };
+      // Check if token includes username (format: username:app_password)
+      if (config.bitbucketAccessToken.includes(':')) {
+        const [username, password] = config.bitbucketAccessToken.split(':');
+        clientOptions.auth = {
+          username,
+          password,
+        };
+      } else {
+        // Try using it as Bearer token (for OAuth)
+        clientOptions.auth = {
+          token: config.bitbucketAccessToken,
+        };
+      }
     } else if (process.env.BITBUCKET_USERNAME && process.env.BITBUCKET_APP_PASSWORD) {
-      // Fallback to username/app password if available
+      // Fallback to separate username/app password if available
       clientOptions.auth = {
         username: process.env.BITBUCKET_USERNAME,
         password: process.env.BITBUCKET_APP_PASSWORD,

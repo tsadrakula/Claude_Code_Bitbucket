@@ -29,8 +29,11 @@ pipelines:
 ### Add these Repository Variables:
 
 1. Go to **Repository settings** → **Repository variables**
-2. **REQUIRED for PR comments:**
-   - `BITBUCKET_ACCESS_TOKEN` - App password with PR read/write permissions ([Create here](https://bitbucket.org/account/settings/app-passwords/))
+2. **REQUIRED for PR comments** (choose one format):
+   - `BITBUCKET_ACCESS_TOKEN` - Set to `username:app_password` format ([Create app password here](https://bitbucket.org/account/settings/app-passwords/))
+   - OR set both:
+     - `BITBUCKET_USERNAME` - Your Bitbucket username
+     - `BITBUCKET_APP_PASSWORD` - Your app password
 3. Add your Claude API key (choose one):
    - `ANTHROPIC_API_KEY` - For Anthropic Claude API
    - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` - For AWS Bedrock
@@ -206,7 +209,9 @@ pipelines:
 
 | Variable | Description |
 |----------|-------------|
-| `BITBUCKET_ACCESS_TOKEN` | **REQUIRED for PR comments** - Bitbucket app password with PR read/write |
+| `BITBUCKET_ACCESS_TOKEN` | **REQUIRED for PR comments** - Format: `username:app_password` |
+| `BITBUCKET_USERNAME` | Alternative: Your Bitbucket username (use with BITBUCKET_APP_PASSWORD) |
+| `BITBUCKET_APP_PASSWORD` | Alternative: Your app password (use with BITBUCKET_USERNAME) |
 
 ### Required (Choose One Authentication Method)
 
@@ -441,6 +446,17 @@ curl https://api.anthropic.com/v1/messages \
 script:
   - TIMEOUT_MINUTES=30 bun start
 ```
+
+### Setting up Bitbucket App Password?
+
+1. Go to [Bitbucket App Passwords](https://bitbucket.org/account/settings/app-passwords/)
+2. Click "Create app password"
+3. Label: "Claude Code"
+4. Permissions needed:
+   - Pull requests: Read and Write
+   - Repositories: Read
+5. Copy the generated password
+6. Set `BITBUCKET_ACCESS_TOKEN` to `yourusername:generated_password`
 
 ### Need help?
 
