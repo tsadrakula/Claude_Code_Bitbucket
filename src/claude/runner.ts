@@ -76,11 +76,23 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       claudeBin = join(homedir(), ".local", "bin", "claude");
     }
     
+    // Log authentication status
+    if (env.ANTHROPIC_API_KEY) {
+      logger.info("Using Anthropic API key for authentication");
+    } else if (env.AWS_ACCESS_KEY_ID) {
+      logger.info("Using AWS Bedrock for authentication");
+    } else if (env.GCP_PROJECT_ID) {
+      logger.info("Using Google Vertex AI for authentication");
+    } else {
+      logger.warning("⚠️ No authentication configured - Claude may not work!");
+    }
+    
     // Spawn Claude process
+    logger.debug(`Running command: ${claudeBin} ${args.join(" ")}`);
     const claudeProcess = spawn(claudeBin, args, {
       env,
       cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "inherit"]
+      stdio: ["pipe", "pipe", "pipe"] // Capture stderr too
     });
     
     // Set timeout
@@ -91,10 +103,33 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       error = `Execution timed out after ${config.timeoutMinutes} minutes`;
     }, config.timeoutMinutes * 60 * 1000);
     
+    // Handle stderr
+    let stderrBuffer = "";
+    claudeProcess.stderr.on("data", (chunk) => {
+      stderrBuffer += chunk.toString();
+      const lines = stderrBuffer.split("\n");
+      stderrBuffer = lines.pop() || "";
+      
+      for (const line of lines) {
+        if (line.trim()) {
+          logger.warning("Claude stderr:", line);
+        }
+      }
+    });
+    
     // Handle stdout for streaming JSON
     let buffer = "";
+    let hasOutput = false;
     claudeProcess.stdout.on("data", async (chunk) => {
-      buffer += chunk.toString();
+      const chunkStr = chunk.toString();
+      buffer += chunkStr;
+      
+      // Log raw output in verbose mode
+      if (config.verbose && chunkStr.trim()) {
+        logger.debug("Claude stdout (raw):", chunkStr.substring(0, 200));
+        hasOutput = true;
+      }
+      
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       
@@ -103,6 +138,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         
         try {
           const event: StreamEvent = JSON.parse(line);
+          logger.debug("Claude event:", event.type);
           
           // Handle different event types
           if (event.type === "message" && event.content) {
@@ -137,21 +173,30 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
           }
         } catch (e) {
           // Not JSON, might be regular output
-          if (config.verbose) {
-            logger.debug("Non-JSON output:", line);
-          }
+          logger.debug("Non-JSON output:", line);
         }
       }
     });
     
     // Send prompt file to stdin
-    claudeProcess.stdin.write(await readFile(promptFile));
+    const promptContent = await readFile(promptFile);
+    logger.debug(`Sending prompt to Claude (${promptContent.length} bytes):`);
+    if (config.verbose) {
+      logger.debug("Prompt preview:", promptContent.toString().substring(0, 500) + "...");
+    }
+    claudeProcess.stdin.write(promptContent);
     claudeProcess.stdin.end();
     
     // Wait for process to complete
     await new Promise<void>((resolve, reject) => {
       claudeProcess.on("exit", (code) => {
         clearTimeout(timeout);
+        
+        logger.info(`Claude process exited with code: ${code}`);
+        
+        if (!hasOutput) {
+          logger.warning("Claude produced no output - check authentication and prompt");
+        }
         
         if (code === 0) {
           logger.success("Claude Code completed successfully");
@@ -161,6 +206,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         } else {
           status = "error";
           error = `Claude exited with code ${code}`;
+          logger.error(`Claude failed with exit code ${code}`);
           resolve();
         }
       });
