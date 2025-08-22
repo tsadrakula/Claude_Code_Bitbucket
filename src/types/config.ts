@@ -44,6 +44,7 @@ export const PipeConfigSchema = z.object({
   // Additional options
   verbose: z.boolean().default(false),
   dryRun: z.boolean().default(false),
+  workingDirectory: z.string().optional(),  // Override working directory for Claude
   
   // Comment handling configuration
   enableStreamingComments: z.boolean().default(false),

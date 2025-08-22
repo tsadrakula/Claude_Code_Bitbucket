@@ -192,7 +192,7 @@ You are assisting with a Bitbucket repository. Provide help based on the current
       
       if (requestType === "actionable") {
         // Allow editing for actionable requests
-        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "Bash"];
+        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "Bash", "LS", "Glob"];
         blockedTools = ["Computer"];
         logger.info("Actionable request detected - enabling edit tools");
       } else {

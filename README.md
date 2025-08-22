@@ -19,9 +19,10 @@ pipelines:
             - curl -fsSL https://bun.sh/install | bash
             - export PATH="$HOME/.bun/bin:$PATH"
             # Clone and setup Claude pipe
-            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
-            - cd claude-pipe && bun install && bun run build
-            - bun start
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude-pipe
+            - cd /tmp/claude-pipe && bun install && bun run build
+            # Return to repository directory and run Claude
+            - cd $BITBUCKET_CLONE_DIR && bun run /tmp/claude-pipe/dist/index.js
           services:
             - docker
 ```
@@ -74,11 +75,13 @@ pipelines:
             - curl -fsSL https://bun.sh/install | bash
             - export PATH="$HOME/.bun/bin:$PATH"
             # Clone and setup Claude pipe
-            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
-            - cd claude-pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude-pipe
+            - cd /tmp/claude-pipe
             - bun install
             - bun run build
-            - bun start
+            # Return to repository directory and run Claude
+            - cd $BITBUCKET_CLONE_DIR
+            - bun run /tmp/claude-pipe/dist/index.js
           services:
             - docker
 ```
@@ -99,11 +102,13 @@ pipelines:
             - apk add --no-cache git bash
             - npm install -g bun
             # Clone and setup Claude pipe
-            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
-            - cd claude-pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git /tmp/claude-pipe
+            - cd /tmp/claude-pipe
             - bun install
             - bun run build
-            - bun start
+            # Return to repository directory and run Claude
+            - cd $BITBUCKET_CLONE_DIR
+            - bun run /tmp/claude-pipe/dist/index.js
           services:
             - docker
 ```
@@ -259,6 +264,7 @@ pipelines:
 | **Development** | | |
 | `VERBOSE` | Enable verbose logging | `false` |
 | `DRY_RUN` | Test without making changes | `false` |
+| `WORKING_DIRECTORY` | Override Claude's working directory | `$BITBUCKET_CLONE_DIR` |
 
 ## 🧠 Intelligent Features
 

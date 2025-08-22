@@ -160,8 +160,8 @@ Focus on the changes in this pull request and provide constructive feedback.
       // Auto-detect based on request type
       if (requestType === "actionable") {
         // Allow editing for actionable requests
-        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit"];
-        blockedTools = ["Bash", "Computer"];
+        allowedTools = ["Read", "Edit", "Write", "Grep", "MultiEdit", "LS", "Glob"];
+        blockedTools = ["Computer"];  // Only block Computer, allow Bash for git operations
         logger.info("Actionable request detected - enabling edit tools");
       } else {
         // Read-only for informational requests

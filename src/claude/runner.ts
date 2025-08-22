@@ -121,12 +121,17 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       logger.error(`Claude binary might not be working correctly at: ${claudeBin}`);
     }
     
-    // Spawn Claude process
+    // Determine the working directory - should be the repository being analyzed
+    // Priority: 1. Config override, 2. BITBUCKET_CLONE_DIR, 3. Current directory
+    const workingDir = config.workingDirectory || process.env.BITBUCKET_CLONE_DIR || process.cwd();
+    
+    // Spawn Claude process in the correct directory
     logger.debug(`Running command: ${claudeBin} ${args.join(" ")}`);
+    logger.debug(`Working directory: ${workingDir}`);
     
     const claudeProcess = spawn(claudeBin, args, {
       env,
-      cwd: process.cwd(),
+      cwd: workingDir,  // Use the repository directory
       stdio: ["pipe", "pipe", "pipe"] // stdin, stdout, stderr all piped
     });
     
