@@ -10,8 +10,8 @@ export const PipeConfigSchema = z.object({
   bitbucketAccessToken: z.string().optional(),
   
   // Model configuration
-  model: z.string().default("claude-4-0-sonnet-20250219"),
-  fallbackModel: z.string().default("claude-opus-4-1-20250805").optional(),
+  model: z.string().default("sonnet"),
+  fallbackModel: z.string().default("opus").optional(),
   maxTurns: z.number().default(30),
   timeoutMinutes: z.number().default(10),
   

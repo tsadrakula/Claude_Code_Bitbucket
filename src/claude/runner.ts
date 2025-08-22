@@ -51,7 +51,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     const args = buildClaudeArgs(config, prompt, mcpConfigFile);
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
-    logger.debug(`Command: claude ${args.join(" ")}`);
+    logger.info(`Full command: claude ${args.join(" ")}`);
+    console.log("[DEBUG] Full args array:", args);
     
     // Post initial comment if we have PR access
     if (prId && config.bitbucketAccessToken) {
