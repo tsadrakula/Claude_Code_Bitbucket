@@ -11,6 +11,8 @@ export interface Mode {
     files?: string[];
     allowedTools?: string[];
     blockedTools?: string[];
+    triggerSource?: "description" | "comment" | "commit";
+    commentId?: any;
   }>;
 }
 
