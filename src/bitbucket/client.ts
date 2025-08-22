@@ -128,16 +128,15 @@ export class BitbucketClient {
         content = "Processing...";
       }
       
+      // According to Bitbucket API docs, we only need content object
       const { data } = await this.client.pullrequests.createComment({
         workspace: this.config.workspace,
         repo_slug: this.config.repoSlug,
         pull_request_id: pullRequestId,
         _body: {
-          type: "pullrequest_comment",
           content: {
-            raw: content,
-            markup: "markdown",
-          },
+            raw: content
+          }
         } as any,
       });
       return data;
@@ -151,10 +150,8 @@ export class BitbucketClient {
       
       // Log the body we tried to send for debugging
       logger.debug("Attempted to send body:", JSON.stringify({
-        type: "pullrequest_comment",
         content: {
-          raw: content,
-          markup: "markdown"
+          raw: content
         }
       }));
       
