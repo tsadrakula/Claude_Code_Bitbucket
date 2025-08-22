@@ -5,10 +5,14 @@ import { updateComment } from "./bitbucket/comment";
 import { formatTurns } from "./format/turns";
 import { collectInputs } from "./entrypoints/collect-inputs";
 import { logger } from "./utils/logger";
+import { ensureClaudeCLI } from "./utils/install-claude";
 
 async function main(): Promise<void> {
   try {
     logger.info("Claude Bitbucket Pipe starting...");
+    
+    // Ensure Claude CLI is installed
+    await ensureClaudeCLI();
 
     // Collect and validate inputs
     const config = await collectInputs();
