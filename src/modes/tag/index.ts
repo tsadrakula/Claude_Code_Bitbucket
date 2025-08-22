@@ -55,9 +55,11 @@ export class TagMode implements Mode {
           // Find the most recent comment with trigger phrase
           for (let i = comments.length - 1; i >= 0; i--) {
             const comment = comments[i];
-            const content = comment.content?.raw || comment.content || "";
+            // Ensure content is a string
+            const rawContent = comment.content?.raw || "";
+            const content = typeof rawContent === "string" ? rawContent : String(rawContent);
             
-            if (content.includes(triggerPhrase)) {
+            if (content && content.includes(triggerPhrase)) {
               logger.info(`Found trigger phrase in comment ${comment.id}`);
               triggerSource = "comment";
               commentId = comment.id;

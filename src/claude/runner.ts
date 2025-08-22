@@ -105,8 +105,17 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     
     // Handle stderr
     let stderrBuffer = "";
+    let stderrOutput = "";
     claudeProcess.stderr.on("data", (chunk) => {
-      stderrBuffer += chunk.toString();
+      const chunkStr = chunk.toString();
+      stderrBuffer += chunkStr;
+      stderrOutput += chunkStr;
+      
+      // Log immediately for debugging
+      if (chunkStr.trim()) {
+        console.error("CLAUDE STDERR:", chunkStr);
+      }
+      
       const lines = stderrBuffer.split("\n");
       stderrBuffer = lines.pop() || "";
       
@@ -198,6 +207,11 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
           logger.warning("Claude produced no output - check authentication and prompt");
         }
         
+        if (stderrOutput) {
+          logger.error("Claude stderr output:", stderrOutput);
+          error = stderrOutput;
+        }
+        
         if (code === 0) {
           logger.success("Claude Code completed successfully");
           resolve();
@@ -205,7 +219,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
           resolve(); // Already handled
         } else {
           status = "error";
-          error = `Claude exited with code ${code}`;
+          error = error || `Claude exited with code ${code}`;
           logger.error(`Claude failed with exit code ${code}`);
           resolve();
         }
