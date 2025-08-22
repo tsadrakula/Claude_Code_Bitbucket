@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { writeFile, mkdtemp, rm } from "fs/promises";
+import { mkdtemp, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir, homedir } from "os";
 import type { PipeConfig, BitbucketContext, ClaudeResult, ConversationTurn } from "../types/config";
@@ -17,6 +17,7 @@ interface RunOptions {
 
 interface StreamEvent {
   type: string;
+  subtype?: string;
   data?: any;
   content?: string;
   tool?: any;
@@ -39,10 +40,6 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     tempDir = await mkdtemp(join(tmpdir(), "claude-"));
     logger.debug(`Created temp directory: ${tempDir}`);
     
-    // Write prompt to file
-    const promptFile = join(tempDir, "prompt.md");
-    await writeFile(promptFile, prompt);
-    
     // Prepare environment variables
     const env = prepareEnvironment(config);
     
@@ -50,8 +47,8 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // TODO: Fix MCP server configuration format for Claude CLI
     const mcpConfigFile: string | undefined = undefined;
     
-    // Build Claude command arguments
-    const args = buildClaudeArgs(config, mcpConfigFile);
+    // Build Claude command arguments (include prompt as argument)
+    const args = buildClaudeArgs(config, prompt, mcpConfigFile);
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
     logger.debug(`Command: claude ${args.join(" ")}`);
@@ -105,7 +102,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     const claudeProcess = spawn(claudeBin, args, {
       env,
       cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "pipe"] // Capture stderr too
+      stdio: ["pipe", "pipe", "pipe"] // stdin, stdout, stderr all piped
     });
     
     console.log("[DEBUG] Claude process spawned with PID:", claudeProcess.pid);
@@ -145,14 +142,16 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     let buffer = "";
     let hasOutput = false;
     let totalOutput = "";
+    let chunkCount = 0;
     claudeProcess.stdout.on("data", async (chunk) => {
       const chunkStr = chunk.toString();
       buffer += chunkStr;
       totalOutput += chunkStr;
+      chunkCount++;
       
-      // Always log first output to see what's happening
-      if (!hasOutput && chunkStr.trim()) {
-        console.log("CLAUDE STDOUT (first chunk):", chunkStr.substring(0, 500));
+      // Log first few chunks to see what's happening
+      if (chunkCount <= 3) {
+        console.log(`CLAUDE STDOUT (chunk ${chunkCount}):\n`, chunkStr);
         hasOutput = true;
       }
       
@@ -204,18 +203,16 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
       }
     });
     
-    // Send prompt file to stdin
-    const promptContent = await readFile(promptFile);
-    console.log(`[DEBUG] Sending prompt to Claude (${promptContent.length} bytes)`);
-    console.log("[DEBUG] Prompt preview:", promptContent.toString().substring(0, 200) + "...");
+    // Since we're passing the prompt as an argument, we don't need to write to stdin
+    // Just close stdin immediately
+    claudeProcess.stdin.end();
     
-    claudeProcess.stdin.on("error", (err) => {
-      console.error("STDIN ERROR:", err);
-    });
-    
-    claudeProcess.stdin.write(promptContent);
-    claudeProcess.stdin.end(() => {
-      console.log("[DEBUG] Stdin closed successfully");
+    // Add stdout end handler
+    claudeProcess.stdout.on("end", () => {
+      console.log("[DEBUG] Stdout ended. Total output length:", totalOutput.length);
+      if (buffer.trim()) {
+        console.log("[DEBUG] Remaining buffer:", buffer);
+      }
     });
     
     // Wait for process to complete
@@ -243,6 +240,11 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
           status = "error";
           error = error || `Claude exited with code ${code}`;
           logger.error(`Claude failed with exit code ${code}`);
+          
+          // Log total output for debugging
+          if (totalOutput) {
+            console.log("[DEBUG] Total Claude output:", totalOutput.substring(0, 1000));
+          }
           resolve();
         }
       });
@@ -337,9 +339,9 @@ function prepareEnvironment(config: PipeConfig): Record<string, string> {
   return env;
 }
 
-function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
+function buildClaudeArgs(config: PipeConfig, prompt: string, mcpConfigFile?: string): string[] {
   const args: string[] = [
-    "-p", // Pipe mode
+    "-p", // Print mode (non-interactive)
     "--verbose", // Required when using stream-json with -p
     "--output-format", "stream-json"
   ];
@@ -364,6 +366,9 @@ function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
     args.push("--disallowed-tools", config.blockedTools.join(","));
   }
   
+  // Add the prompt as the last argument
+  args.push(prompt);
+  
   // Log what args we're using in verbose mode
   if (config.verbose) {
     logger.debug("Claude args:", args);
@@ -372,5 +377,3 @@ function buildClaudeArgs(config: PipeConfig, mcpConfigFile?: string): string[] {
   return args;
 }
 
-// Helper function to read file (import was missing)
-import { readFile } from "fs/promises";
