@@ -68,6 +68,8 @@ export interface PrepareResult {
   };
   parentCommentId?: string;
   commentType?: "inline" | "top-level" | "jira";  // For future extensibility
+  allowedTools?: string[];
+  blockedTools?: string[];
 }
 
 export interface BitbucketContext {

@@ -39,6 +39,8 @@ export async function prepare(config: PipeConfig): Promise<PrepareResult> {
       inlineContext: modeContext.inlineContext,
       parentCommentId: modeContext.parentCommentId,
       commentType: modeContext.inlineContext ? "inline" : "top-level",
+      allowedTools: modeContext.allowedTools,
+      blockedTools: modeContext.blockedTools,
     };
   } catch (error) {
     logger.error("Failed to prepare context:", error);

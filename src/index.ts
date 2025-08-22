@@ -42,6 +42,8 @@ async function main(): Promise<void> {
       commentId: prepareResult.commentId,
       inlineContext: prepareResult.inlineContext,
       parentCommentId: prepareResult.parentCommentId,
+      allowedTools: prepareResult.allowedTools,
+      blockedTools: prepareResult.blockedTools,
     });
 
     // Format the conversation turns if needed for logging

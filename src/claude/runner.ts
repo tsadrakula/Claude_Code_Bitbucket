@@ -18,6 +18,8 @@ interface RunOptions {
     to: number | null;
   };
   parentCommentId?: string;
+  allowedTools?: string[];
+  blockedTools?: string[];
 }
 
 interface StreamEvent {
@@ -45,7 +47,7 @@ interface StreamEvent {
 }
 
 export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> {
-  const { config, prompt, prId, commentId, inlineContext, parentCommentId } = options;
+  const { config, prompt, prId, commentId, inlineContext, parentCommentId, allowedTools, blockedTools } = options;
   const startTime = Date.now();
   
   logger.group("Running Claude Code");
@@ -68,9 +70,19 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // TODO: Fix MCP server configuration format for Claude CLI
     
     // Build Claude command arguments (include prompt as argument)
-    const args = buildClaudeArgs(config, prompt);
+    // Pass the tools from RunOptions if provided, otherwise use config defaults
+    const args = buildClaudeArgs(
+      { ...config, allowedTools: allowedTools || config.allowedTools, blockedTools: blockedTools || config.blockedTools },
+      prompt
+    );
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
+    if (allowedTools && allowedTools.length > 0) {
+      logger.info(`Allowed tools: ${allowedTools.join(", ")}`);
+    }
+    if (blockedTools && blockedTools.length > 0) {
+      logger.info(`Blocked tools: ${blockedTools.join(", ")}`);
+    }
     logger.info(`Full command: claude ${args.join(" ")}`);
     console.log("[DEBUG] Full args array:", args);
     
