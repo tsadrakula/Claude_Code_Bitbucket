@@ -125,7 +125,7 @@ case "$auth_provider" in
             - export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY_ID}
             - export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_ACCESS_KEY}
             - export AWS_REGION=\"$AWS_REGION\"
-            - export MODEL=\"anthropic.claude-3-5-sonnet-20241022-v2:0\""
+            - export MODEL=\"sonnet\""
         ;;
     3)
         echo "GCP_PROJECT_ID=<your-gcp-project-id>" >> "$ENV_VARS_FILE"
@@ -135,7 +135,7 @@ case "$auth_provider" in
             - export GCP_PROJECT_ID=\${GCP_PROJECT_ID}
             - export GCP_SERVICE_ACCOUNT_KEY=\${GCP_SERVICE_ACCOUNT_KEY}
             - export GCP_REGION=\"$GCP_REGION\"
-            - export MODEL=\"claude-3-5-sonnet-v2@20241022\""
+            - export MODEL=\"sonnet\""
         ;;
 esac
 

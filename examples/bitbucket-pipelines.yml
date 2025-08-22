@@ -34,7 +34,7 @@ pipelines:
             - |
               export MODE=${MODE:-tag}
               export TRIGGER_PHRASE=${TRIGGER_PHRASE:-@claude}
-              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export MODEL=${MODEL:-sonnet}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start
@@ -78,7 +78,7 @@ pipelines:
               export TASK="${TASK}"
               export AUTO_COMMIT="${AUTO_COMMIT}"
               export AUTO_PR="${AUTO_PR}"
-              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export MODEL=${MODEL:-sonnet}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start
@@ -106,7 +106,7 @@ pipelines:
             - |
               export MODE=agent
               export TASK="Perform a comprehensive security audit of the codebase. Check for vulnerabilities, insecure patterns, and potential security issues."
-              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export MODEL=${MODEL:-sonnet}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start
@@ -133,7 +133,7 @@ pipelines:
             # Run code quality review
             - |
               export MODE=experimental-review
-              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export MODEL=${MODEL:-sonnet}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start
@@ -163,7 +163,7 @@ pipelines:
             - |
               export MODE=agent
               export TASK="Review recent changes for code quality, identify technical debt, and suggest improvements"
-              export MODEL=${MODEL:-claude-3-5-sonnet-20241022}
+              export MODEL=${MODEL:-sonnet}
               export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
               export BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
               bun start

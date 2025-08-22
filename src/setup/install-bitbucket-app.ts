@@ -94,7 +94,7 @@ async function main() {
       },
       api: apiConfig,
       preferences: {
-        model: "claude-3-5-sonnet-20241022",
+        model: "sonnet",
         maxTurns: 30,
         timeoutMinutes: 10,
       },

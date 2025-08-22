@@ -10,7 +10,7 @@ async function main() {
     bitbucketAccessToken: process.env.BITBUCKET_ACCESS_TOKEN,
     mode: process.env.MODE || "tag",
     triggerPhrase: process.env.TRIGGER_PHRASE || "@claude",
-    model: process.env.MODEL || "claude-3-5-sonnet-20241022",
+    model: process.env.MODEL || "sonnet",
     maxTurns: parseInt(process.env.MAX_TURNS || "30"),
     timeoutMinutes: parseInt(process.env.TIMEOUT_MINUTES || "10"),
     branchPrefix: process.env.BRANCH_PREFIX || "claude/",

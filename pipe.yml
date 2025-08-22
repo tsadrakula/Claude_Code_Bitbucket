@@ -29,7 +29,7 @@ variables:
     required: false
   - name: MODEL
     description: "Claude model to use"
-    default: "claude-3-5-sonnet-20241022"
+    default: "sonnet"
     required: false
   - name: MAX_TURNS
     description: "Maximum conversation turns"

@@ -244,7 +244,7 @@ pipelines:
 |----------|-------------|---------|
 | `MODE` | Operation mode: `tag`, `agent`, or `experimental-review` | `tag` |
 | `TRIGGER_PHRASE` | Phrase to trigger Claude in comments | `@claude` |
-| `MODEL` | Claude model to use | `claude-3-5-sonnet-20241022` |
+| `MODEL` | Claude model to use | `sonnet` |
 | `MAX_TURNS` | Maximum conversation turns | `30` |
 | `TIMEOUT_MINUTES` | Execution timeout | `10` |
 | `BRANCH_PREFIX` | Prefix for created branches | `claude/` |
@@ -300,7 +300,7 @@ pipelines:
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
               export AWS_REGION="us-east-1"
-              export MODEL="anthropic.claude-3-5-sonnet-20241022-v2:0"
+              export MODEL="sonnet"
               bun start
 ```
 
@@ -322,7 +322,7 @@ pipelines:
               export GCP_PROJECT_ID=$GCP_PROJECT_ID
               export GCP_SERVICE_ACCOUNT_KEY=$GCP_SERVICE_ACCOUNT_KEY
               export GCP_REGION="us-central1"
-              export MODEL="claude-3-5-sonnet-v2@20241022"
+              export MODEL="sonnet"
               bun start
 ```
 

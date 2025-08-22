@@ -137,7 +137,7 @@ BITBUCKET_REPO_SLUG=your-repo-slug
 
 # Configuration
 MODE=review
-MODEL=claude-3-5-sonnet-20241022
+MODEL=sonnet
 MAX_TURNS=30
 TIMEOUT_MINUTES=10
 VERBOSE=false

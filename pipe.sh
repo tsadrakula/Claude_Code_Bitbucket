@@ -11,7 +11,7 @@ export BITBUCKET_PIPE=true
 # Log pipe execution start
 echo "🚀 Starting Claude Bitbucket Pipe..."
 echo "Mode: ${MODE:-tag}"
-echo "Model: ${MODEL:-claude-3-5-sonnet-20241022}"
+echo "Model: ${MODEL:-sonnet}"
 
 # Run the TypeScript entry point with Bun
 exec bun run /pipe/dist/index.js "$@"

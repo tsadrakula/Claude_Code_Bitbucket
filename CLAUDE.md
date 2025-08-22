@@ -149,7 +149,7 @@ BITBUCKET_REPO_SLUG=your-repo
 # Configuration
 MODE=tag|agent|experimental-review   # Execution mode
 TRIGGER_PHRASE=@claude               # Trigger phrase
-MODEL=claude-3-5-sonnet-20241022    # Claude model
+MODEL=sonnet                         # Claude model
 MAX_TURNS=30                         # Max conversation turns
 TIMEOUT_MINUTES=10                   # Timeout duration
 
@@ -260,7 +260,7 @@ pipelines:
 ### 1. Anthropic API (Recommended)
 ```yaml
 ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-MODEL: claude-3-5-sonnet-20241022
+MODEL: sonnet
 ```
 
 ### 2. AWS Bedrock
@@ -268,7 +268,7 @@ MODEL: claude-3-5-sonnet-20241022
 AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
 AWS_REGION: us-east-1
-MODEL: anthropic.claude-3-5-sonnet-20241022-v2
+MODEL: sonnet  # Note: For Bedrock, may need specific model IDs
 ```
 
 ### 3. Google Vertex AI
@@ -276,7 +276,7 @@ MODEL: anthropic.claude-3-5-sonnet-20241022-v2
 GCP_PROJECT_ID: ${GCP_PROJECT_ID}
 GCP_SERVICE_ACCOUNT_KEY: ${GCP_SERVICE_ACCOUNT_KEY}
 GCP_REGION: us-central1
-MODEL: claude-3-5-sonnet@20241022
+MODEL: sonnet  # Note: For Vertex AI, may need specific model IDs
 ```
 
 ## Tool Configuration
