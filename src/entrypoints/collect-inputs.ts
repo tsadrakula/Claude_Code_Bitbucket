@@ -60,7 +60,7 @@ export async function collectInputs(): Promise<PipeConfig> {
     branch,
     
     // Options
-    verbose: env.VERBOSE === "true",
+    verbose: env.VERBOSE === "true" || true, // Default to true for debugging
     dryRun: env.DRY_RUN === "true",
   };
 

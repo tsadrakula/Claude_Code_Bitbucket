@@ -128,34 +128,52 @@ export class BitbucketClient {
         content = "Processing...";
       }
       
+      // Log what we're about to send
+      const requestBody = {
+        type: "pullrequest_comment",
+        content: {
+          raw: content
+        }
+      };
+      
+      if (this.config.verbose) {
+        logger.debug("Creating PR comment with body:", JSON.stringify(requestBody));
+        logger.debug(`PR ID: ${pullRequestId}, Workspace: ${this.config.workspace}, Repo: ${this.config.repoSlug}`);
+      }
+      
       // According to Bitbucket API docs, type is REQUIRED
       const { data } = await this.client.pullrequests.createComment({
         workspace: this.config.workspace,
         repo_slug: this.config.repoSlug,
         pull_request_id: pullRequestId,
-        _body: {
-          type: "pullrequest_comment",
-          content: {
-            raw: content
-          }
-        } as any,
+        _body: requestBody as any,
       });
+      
+      logger.success("Successfully created PR comment");
       return data;
     } catch (error: any) {
       // Log more details about the error
       if (error.error?.error?.message) {
         logger.warning(`Failed to create PR comment: ${error.error.error.message}`);
+        if (error.error?.error?.fields) {
+          logger.warning("Field errors:", JSON.stringify(error.error.error.fields));
+        }
+      } else if (error.message) {
+        logger.warning(`Failed to create PR comment: ${error.message}`);
       } else {
         logger.warning(`Failed to create PR comment:`, error);
       }
       
-      // Log the body we tried to send for debugging
-      logger.debug("Attempted to send body:", JSON.stringify({
-        type: "pullrequest_comment",
-        content: {
-          raw: content
-        }
-      }));
+      // Log request details for debugging
+      if (this.config.verbose) {
+        logger.debug("Request failed for:", {
+          workspace: this.config.workspace,
+          repo_slug: this.config.repoSlug,
+          pull_request_id: pullRequestId,
+          content_length: content.length,
+          content_preview: content.substring(0, 50) + "..."
+        });
+      }
       
       return null;
     }
