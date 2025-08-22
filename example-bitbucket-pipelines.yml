@@ -1,0 +1,68 @@
+# Example Bitbucket Pipelines configuration for Claude Code
+# Copy this to your repository's bitbucket-pipelines.yml
+
+image: node:20
+
+pipelines:
+  # Automatic PR reviews
+  pull-requests:
+    '**':
+      - step:
+          name: Claude Code Review
+          script:
+            # Install Claude Code CLI
+            - npm install -g claude-code
+            
+            # Run the Bitbucket Pipe
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: experimental-review
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
+          services:
+            - docker
+
+  # Custom pipeline for manual Claude assistance
+  custom:
+    claude-help:
+      - step:
+          name: Claude Assistant
+          script:
+            - npm install -g claude-code
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: tag
+                TRIGGER_PHRASE: "@claude"
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                BITBUCKET_ACCESS_TOKEN: ${BITBUCKET_ACCESS_TOKEN}
+          services:
+            - docker
+    
+    # Security audit
+    security-check:
+      - step:
+          name: Security Audit
+          script:
+            - npm install -g claude-code
+            - pipe: docker://claudecode/bitbucket-pipe:latest
+              variables:
+                MODE: agent
+                ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+                CLAUDE_AGENT_PROMPT: |
+                  Perform a security audit of the codebase:
+                  1. Check for hardcoded secrets
+                  2. Review authentication flows
+                  3. Identify injection vulnerabilities
+                  4. Check dependency vulnerabilities
+                  5. Review access controls
+                ALLOWED_TOOLS: "Read,Grep"
+          services:
+            - docker
+
+# For local development/testing, you can also run directly:
+# docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+#            -e BITBUCKET_WORKSPACE=your-workspace \
+#            -e BITBUCKET_REPO_SLUG=your-repo \
+#            -e MODE=review \
+#            -v $(pwd):/workspace \
+#            claudecode/bitbucket-pipe:latest
