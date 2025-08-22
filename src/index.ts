@@ -31,14 +31,12 @@ async function main(): Promise<void> {
     // Format the conversation turns
     const formattedOutput = await formatTurns(result.turns);
 
-    // Update PR comment if applicable
-    if (prepareResult.commentId) {
-      await updateComment({
-        commentId: prepareResult.commentId,
-        content: formattedOutput,
-        status: result.status,
-      });
-    }
+    // Output results (since we're not updating PR comments via API)
+    await updateComment({
+      commentId: "console",
+      content: formattedOutput,
+      status: result.status,
+    });
 
     // Log summary
     logger.success(`✅ Claude Code completed successfully`);

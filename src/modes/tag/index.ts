@@ -1,28 +1,14 @@
 import type { Mode } from "../index";
 import type { PipeConfig, BitbucketContext } from "../../types/config";
-import { BitbucketAPI } from "../../bitbucket/api";
 import { logger } from "../../utils/logger";
 
 export class TagMode implements Mode {
   name = "tag";
 
-  shouldTrigger(config: PipeConfig, context: BitbucketContext): boolean {
-    // Check if this is a PR comment event
-    if (context.eventType === "pullrequest:comment_created") {
-      return true;
-    }
-
-    // Check if this is a manual trigger
-    if (context.eventType === "custom:manual") {
-      return true;
-    }
-
-    // Check for trigger phrase in commit message
-    if (context.commit?.message.includes(config.triggerPhrase)) {
-      return true;
-    }
-
-    return false;
+  shouldTrigger(_config: PipeConfig, _context: BitbucketContext): boolean {
+    // Tag mode always runs when explicitly set
+    // We'll check for trigger phrase in the PR description or commit message
+    return true;
   }
 
   async prepareContext(
@@ -36,50 +22,36 @@ export class TagMode implements Mode {
   }> {
     logger.info("Preparing tag mode context...");
 
-    const api = new BitbucketAPI(config);
     let prompt = "";
     let files: string[] = [];
 
-    // Handle PR comment
+    // Handle PR context
     if (context.pullRequest) {
-      // Get PR details
-      const pr = await api.getPullRequest(context.pullRequest.id);
+      // Build prompt from PR information available in environment
+      const prDescription = context.pullRequest.description || "No description provided";
+      const triggerPhrase = config.triggerPhrase;
       
-      // Get changed files
-      const diff = await api.getPullRequestDiff(context.pullRequest.id);
-      files = this.extractFilesFromDiff(diff);
+      // Check if description contains trigger phrase
+      const hasTrigger = prDescription.includes(triggerPhrase);
+      const request = hasTrigger 
+        ? prDescription.replace(triggerPhrase, "").trim()
+        : prDescription;
 
-      // Check for trigger phrase in comments
-      const comments = await api.getPullRequestComments(context.pullRequest.id);
-      const triggerComment = comments.find(c => 
-        c.content.raw.includes(config.triggerPhrase)
-      );
-
-      if (triggerComment) {
-        // Extract the request from the comment
-        const request = triggerComment.content.raw
-          .replace(config.triggerPhrase, "")
-          .trim();
-
-        prompt = `
+      prompt = `
 # Pull Request Context
 
-**Title:** ${pr.title}
-**Description:** ${pr.description || "No description provided"}
-**Author:** ${pr.author.display_name}
-**Source Branch:** ${pr.source.branch.name}
-**Destination Branch:** ${pr.destination.branch.name}
+**Title:** ${context.pullRequest.title}
+**Description:** ${prDescription}
+**Author:** ${context.pullRequest.author}
+**Source Branch:** ${context.pullRequest.sourceBranch}
+**Destination Branch:** ${context.pullRequest.destinationBranch}
 
 ## User Request
 ${request || "Please review this pull request and provide feedback."}
 
-## Changed Files
-${files.map(f => `- ${f}`).join("\n")}
-
 ## Instructions
 You are reviewing a pull request in Bitbucket. Analyze the changes and provide helpful feedback based on the user's request.
 `;
-      }
     } else if (context.commit) {
       // Handle commit trigger
       const message = context.commit.message;
@@ -100,6 +72,18 @@ ${request}
 ## Instructions
 You are assisting with a commit in Bitbucket. Help with the requested task.
 `;
+    } else {
+      // General context
+      prompt = `
+# Repository Context
+
+**Repository:** ${context.repository.fullName}
+**Branch:** ${context.branch || context.repository.defaultBranch}
+**Triggered by:** ${context.actor}
+
+## Instructions
+You are assisting with a Bitbucket repository. Provide help based on the current context.
+`;
     }
 
     return {
@@ -108,21 +92,5 @@ You are assisting with a commit in Bitbucket. Help with the requested task.
       allowedTools: config.allowedTools,
       blockedTools: config.blockedTools,
     };
-  }
-
-  private extractFilesFromDiff(diff: string): string[] {
-    const files: string[] = [];
-    const lines = diff.split("\n");
-    
-    for (const line of lines) {
-      if (line.startsWith("diff --git")) {
-        const match = line.match(/b\/(.+)$/);
-        if (match) {
-          files.push(match[1]);
-        }
-      }
-    }
-    
-    return files;
   }
 }

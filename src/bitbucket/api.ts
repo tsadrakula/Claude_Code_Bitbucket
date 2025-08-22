@@ -1,189 +1,176 @@
-import axios, { AxiosInstance } from "axios";
+import fetch from "node-fetch";
 import type { PipeConfig } from "../types/config";
 import { logger } from "../utils/logger";
 
 export class BitbucketAPI {
-  private client: AxiosInstance;
+  private baseUrl = "https://api.bitbucket.org/2.0";
   private config: PipeConfig;
+  private headers: Record<string, string>;
 
   constructor(config: PipeConfig) {
     this.config = config;
     
-    // Use Bitbucket Cloud API v2
-    this.client = axios.create({
-      baseURL: "https://api.bitbucket.org/2.0",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      timeout: 30000,
-    });
+    // Only set up auth headers if we have a token
+    this.headers = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    };
 
-    // Add authentication if available
     if (config.bitbucketAccessToken) {
-      this.client.defaults.headers.common["Authorization"] = 
-        `Bearer ${config.bitbucketAccessToken}`;
-    } else {
-      logger.warning("No Bitbucket access token provided. Some operations may fail.");
+      this.headers["Authorization"] = `Bearer ${config.bitbucketAccessToken}`;
+    }
+  }
+
+  private async fetchAPI(endpoint: string, options: any = {}): Promise<any> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    if (this.config.verbose) {
+      logger.debug(`API Request: ${options.method || 'GET'} ${url}`);
     }
 
-    // Add request/response interceptors for debugging
-    if (config.verbose) {
-      this.client.interceptors.request.use(
-        (config) => {
-          logger.debug(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
-          return config;
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...this.headers,
+          ...options.headers,
         },
-        (error) => {
-          logger.error("API Request Error:", error);
-          return Promise.reject(error);
-        }
-      );
+      });
 
-      this.client.interceptors.response.use(
-        (response) => {
-          logger.debug(`API Response: ${response.status} ${response.config.url}`);
-          return response;
-        },
-        (error) => {
-          logger.error(`API Response Error: ${error.response?.status} ${error.config?.url}`);
-          return Promise.reject(error);
-        }
-      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
+    } catch (error) {
+      logger.error(`API Error: ${error}`);
+      throw error;
     }
   }
 
   async getPullRequest(prId: number): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}`;
-    const response = await this.client.get(url);
-    return response.data;
+    // Only fetch if we really need additional PR data
+    // Most info should come from environment variables
+    if (!this.config.bitbucketAccessToken) {
+      logger.warning("No access token, using environment data only");
+      return {
+        id: prId,
+        title: process.env.BITBUCKET_PR_TITLE || "Pull Request",
+        description: process.env.BITBUCKET_PR_DESCRIPTION || "",
+        source: {
+          branch: {
+            name: process.env.BITBUCKET_BRANCH || "unknown",
+          },
+        },
+        destination: {
+          branch: {
+            name: process.env.BITBUCKET_PR_DESTINATION_BRANCH || "main",
+          },
+        },
+        author: {
+          display_name: process.env.BITBUCKET_STEP_TRIGGERER_UUID || "unknown",
+        },
+      };
+    }
+
+    return this.fetchAPI(
+      `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}`
+    );
   }
 
   async getPullRequestDiff(prId: number): Promise<string> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/diff`;
-    const response = await this.client.get(url, {
-      headers: { "Accept": "text/plain" }
-    });
-    return response.data;
+    if (!this.config.bitbucketAccessToken) {
+      return "Diff not available without access token";
+    }
+
+    return this.fetchAPI(
+      `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/diff`,
+      {
+        headers: { "Accept": "text/plain" },
+      }
+    );
   }
 
   async getPullRequestComments(prId: number): Promise<any[]> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments`;
-    const response = await this.client.get(url);
-    return response.data.values || [];
+    if (!this.config.bitbucketAccessToken) {
+      return [];
+    }
+
+    const data = await this.fetchAPI(
+      `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments`
+    );
+    return data.values || [];
   }
 
   async createPullRequestComment(prId: number, content: string): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments`;
-    const response = await this.client.post(url, {
-      content: {
-        raw: content,
-        markup: "markdown",
-      },
-    });
-    return response.data;
+    if (!this.config.bitbucketAccessToken) {
+      logger.warning("Cannot create comment without access token");
+      return { id: "dummy", content: { raw: content } };
+    }
+
+    return this.fetchAPI(
+      `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content: {
+            raw: content,
+            markup: "markdown",
+          },
+        }),
+      }
+    );
   }
 
   async updatePullRequestComment(prId: number, commentId: string, content: string): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments/${commentId}`;
-    const response = await this.client.put(url, {
-      content: {
-        raw: content,
-        markup: "markdown",
-      },
-    });
-    return response.data;
-  }
+    if (!this.config.bitbucketAccessToken) {
+      logger.warning("Cannot update comment without access token");
+      return { id: commentId, content: { raw: content } };
+    }
 
-  async createInlineComment(
-    prId: number, 
-    filePath: string, 
-    lineNumber: number, 
-    content: string
-  ): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments`;
-    const response = await this.client.post(url, {
-      content: {
-        raw: content,
-        markup: "markdown",
-      },
-      inline: {
-        path: filePath,
-        to: lineNumber,
-      },
-    });
-    return response.data;
+    return this.fetchAPI(
+      `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests/${prId}/comments/${commentId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          content: {
+            raw: content,
+            markup: "markdown",
+          },
+        }),
+      }
+    );
   }
 
   async getRepository(): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}`;
-    const response = await this.client.get(url);
-    return response.data;
-  }
-
-  async getBranches(): Promise<any[]> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/refs/branches`;
-    const response = await this.client.get(url);
-    return response.data.values || [];
-  }
-
-  async createBranch(branchName: string, fromBranch: string): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/refs/branches`;
-    const response = await this.client.post(url, {
-      name: branchName,
-      target: {
-        hash: fromBranch,
+    // Use environment variables first
+    const envRepo = {
+      name: this.config.repoSlug,
+      full_name: `${this.config.workspace}/${this.config.repoSlug}`,
+      is_private: true,
+      mainbranch: {
+        name: process.env.BITBUCKET_BRANCH || "main",
       },
-    });
-    return response.data;
-  }
+      language: "unknown",
+    };
 
-  async createPullRequest(
-    title: string,
-    description: string,
-    sourceBranch: string,
-    destinationBranch: string
-  ): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pullrequests`;
-    const response = await this.client.post(url, {
-      title,
-      description,
-      source: {
-        branch: { name: sourceBranch },
-      },
-      destination: {
-        branch: { name: destinationBranch },
-      },
-      close_source_branch: true,
-    });
-    return response.data;
-  }
+    if (!this.config.bitbucketAccessToken) {
+      return envRepo;
+    }
 
-  async getCommit(hash: string): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/commit/${hash}`;
-    const response = await this.client.get(url);
-    return response.data;
-  }
-
-  async getPipelines(): Promise<any[]> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pipelines`;
-    const response = await this.client.get(url);
-    return response.data.values || [];
-  }
-
-  async triggerPipeline(branch: string, variables?: Record<string, string>): Promise<any> {
-    const url = `/repositories/${this.config.workspace}/${this.config.repoSlug}/pipelines`;
-    const response = await this.client.post(url, {
-      target: {
-        type: "pipeline_ref_target",
-        ref_type: "branch",
-        ref_name: branch,
-      },
-      variables: variables ? Object.entries(variables).map(([key, value]) => ({
-        key,
-        value,
-      })) : undefined,
-    });
-    return response.data;
+    try {
+      return await this.fetchAPI(
+        `/repositories/${this.config.workspace}/${this.config.repoSlug}`
+      );
+    } catch (error) {
+      logger.warning("Failed to fetch repository data, using environment fallback");
+      return envRepo;
+    }
   }
 }

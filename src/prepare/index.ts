@@ -1,15 +1,13 @@
 import type { PipeConfig, PrepareResult, BitbucketContext } from "../types/config";
 import { getModeHandler } from "../modes/index";
-import { BitbucketAPI } from "../bitbucket/api";
 import { logger } from "../utils/logger";
-import { createTrackingComment } from "../bitbucket/comment";
 
 export async function prepare(config: PipeConfig): Promise<PrepareResult> {
   logger.group("Preparing execution context");
 
   try {
-    // Build Bitbucket context
-    const context = await buildContext(config);
+    // Build context from environment variables (no API calls needed)
+    const context = buildContextFromEnv(config);
     
     // Get mode handler
     const mode = getModeHandler(config.mode);
@@ -29,18 +27,6 @@ export async function prepare(config: PipeConfig): Promise<PrepareResult> {
     // Prepare mode-specific context
     const modeContext = await mode.prepareContext(config, context);
     
-    // Create tracking comment if in tag mode with PR
-    let commentId: string | undefined;
-    if (config.mode === "tag" && context.pullRequest) {
-      commentId = await createTrackingComment(config, context.pullRequest.id);
-    }
-    
-    // Prepare branch if auto-commit is enabled
-    let branch: string | undefined;
-    if (config.autoCommit) {
-      branch = await prepareBranch(config, context);
-    }
-    
     logger.success("Context prepared successfully");
     logger.groupEnd();
     
@@ -48,8 +34,6 @@ export async function prepare(config: PipeConfig): Promise<PrepareResult> {
       shouldRun: true,
       context,
       prompt: modeContext.prompt,
-      commentId,
-      branch,
     };
   } catch (error) {
     logger.error("Failed to prepare context:", error);
@@ -57,55 +41,51 @@ export async function prepare(config: PipeConfig): Promise<PrepareResult> {
   }
 }
 
-async function buildContext(config: PipeConfig): Promise<BitbucketContext> {
-  const api = new BitbucketAPI(config);
+function buildContextFromEnv(config: PipeConfig): BitbucketContext {
+  // Use Bitbucket Pipeline environment variables directly
+  // No API calls needed for basic context
   
-  // Determine event type from environment
   const eventType = detectEventType();
   
-  // Get repository information
-  const repository = await api.getRepository();
-  
-  // Build base context
   const context: BitbucketContext = {
     workspace: config.workspace,
     repoSlug: config.repoSlug,
     eventType,
     actor: process.env.BITBUCKET_STEP_TRIGGERER_UUID || "unknown",
-    branch: config.branch,
+    branch: config.branch || process.env.BITBUCKET_BRANCH,
     repository: {
-      name: repository.name,
-      fullName: repository.full_name,
-      isPrivate: repository.is_private,
-      defaultBranch: repository.mainbranch?.name || "main",
-      language: repository.language || "unknown",
+      name: config.repoSlug,
+      fullName: `${config.workspace}/${config.repoSlug}`,
+      isPrivate: true, // Assume private by default
+      defaultBranch: process.env.BITBUCKET_DEFAULT_BRANCH || "main",
+      language: process.env.BITBUCKET_PROJECT_LANGUAGE || "unknown",
     },
   };
   
-  // Add PR context if available
-  if (config.prId) {
-    const pr = await api.getPullRequest(config.prId);
+  // Add PR context if available from environment
+  if (config.prId || process.env.BITBUCKET_PR_ID) {
+    const prId = config.prId || parseInt(process.env.BITBUCKET_PR_ID!);
     context.pullRequest = {
-      id: pr.id,
-      title: pr.title,
-      description: pr.description || "",
-      sourceBranch: pr.source.branch.name,
-      destinationBranch: pr.destination.branch.name,
-      author: pr.author.display_name,
-      state: pr.state,
-      createdOn: pr.created_on,
-      updatedOn: pr.updated_on,
+      id: prId,
+      title: process.env.BITBUCKET_PR_TITLE || "Pull Request",
+      description: process.env.BITBUCKET_PR_DESCRIPTION || "",
+      sourceBranch: process.env.BITBUCKET_BRANCH || "unknown",
+      destinationBranch: process.env.BITBUCKET_PR_DESTINATION_BRANCH || "main",
+      author: process.env.BITBUCKET_STEP_TRIGGERER_UUID || "unknown",
+      state: "OPEN",
+      createdOn: new Date().toISOString(),
+      updatedOn: new Date().toISOString(),
     };
   }
   
-  // Add commit context if available
-  if (config.commitHash) {
-    const commit = await api.getCommit(config.commitHash);
+  // Add commit context if available from environment
+  if (config.commitHash || process.env.BITBUCKET_COMMIT) {
+    const hash = config.commitHash || process.env.BITBUCKET_COMMIT!;
     context.commit = {
-      hash: commit.hash,
-      message: commit.message,
-      author: commit.author.user?.display_name || commit.author.raw,
-      date: commit.date,
+      hash,
+      message: process.env.BITBUCKET_COMMIT_MESSAGE || "Commit",
+      author: process.env.BITBUCKET_STEP_TRIGGERER_UUID || "unknown",
+      date: new Date().toISOString(),
     };
   }
   
@@ -113,7 +93,7 @@ async function buildContext(config: PipeConfig): Promise<BitbucketContext> {
 }
 
 function detectEventType(): string {
-  // Check pipeline trigger type
+  // Check pipeline trigger type from Bitbucket environment
   const trigger = process.env.BITBUCKET_PIPELINE_TRIGGER_TYPE;
   
   if (trigger === "PULL_REQUEST") {
@@ -134,20 +114,4 @@ function detectEventType(): string {
   }
   
   return "unknown";
-}
-
-async function prepareBranch(config: PipeConfig, context: BitbucketContext): Promise<string> {
-  const api = new BitbucketAPI(config);
-  
-  // Generate branch name
-  const timestamp = Date.now();
-  const branchName = `${config.branchPrefix}${context.eventType}-${timestamp}`;
-  
-  logger.info(`Creating branch: ${branchName}`);
-  
-  // Create branch from current ref
-  const sourceBranch = config.branch || context.repository.defaultBranch;
-  await api.createBranch(branchName, sourceBranch);
-  
-  return branchName;
 }
