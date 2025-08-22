@@ -4,6 +4,8 @@
   "description": "Bitbucket Pipe for Claude Code - AI-powered code assistance",
   "type": "module",
   "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run src/index.ts",
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
     "test": "bun test",
     "typecheck": "tsc --noEmit",

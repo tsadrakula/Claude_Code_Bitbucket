@@ -21,7 +21,7 @@ pipelines:
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - bun run src/main.ts
+            - bun start
           services:
             - docker
 ```
@@ -63,7 +63,7 @@ pipelines:
             - cd claude-pipe
             - bun install
             - bun run build
-            - bun run src/main.ts
+            - bun start
           services:
             - docker
 ```
@@ -88,7 +88,7 @@ pipelines:
             - cd claude-pipe
             - bun install
             - bun run build
-            - bun run src/main.ts
+            - bun start
           services:
             - docker
 ```
@@ -161,7 +161,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - MODE=experimental-review bun run src/main.ts
+            - MODE=experimental-review bun start
 ```
 
 ### Agent Mode (Autonomous Tasks)
@@ -178,7 +178,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - MODE=agent TASK="Refactor authentication module" bun run src/main.ts
+            - MODE=agent TASK="Refactor authentication module" bun start
 ```
 
 ### Custom Trigger Phrase
@@ -195,7 +195,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - TRIGGER_PHRASE="@ai-assist" bun run src/main.ts
+            - TRIGGER_PHRASE="@ai-assist" bun start
 ```
 
 ## 📋 Environment Variables
@@ -278,7 +278,7 @@ pipelines:
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
               export AWS_REGION="us-east-1"
               export MODEL="anthropic.claude-3-5-sonnet-20241022-v2:0"
-              bun run src/main.ts
+              bun start
 ```
 
 ### Using Google Vertex AI
@@ -300,7 +300,7 @@ pipelines:
               export GCP_SERVICE_ACCOUNT_KEY=$GCP_SERVICE_ACCOUNT_KEY
               export GCP_REGION="us-central1"
               export MODEL="claude-3-5-sonnet-v2@20241022"
-              bun run src/main.ts
+              bun start
 ```
 
 ### Complete Pipeline with Multiple Triggers
@@ -318,7 +318,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - bun run src/main.ts
+            - bun start
   
   # Manual agent tasks
   custom:
@@ -334,7 +334,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - MODE=agent TASK="$TASK" bun run src/main.ts
+            - MODE=agent TASK="$TASK" bun start
   
   # Scheduled maintenance
   branches:
@@ -348,7 +348,7 @@ pipelines:
             - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
-            - MODE=agent TASK="Review code for potential improvements" bun run src/main.ts
+            - MODE=agent TASK="Review code for potential improvements" bun start
 ```
 
 ## 🚀 Development
@@ -431,7 +431,7 @@ curl https://api.anthropic.com/v1/messages \
 ```yaml
 # Increase timeout in pipeline
 script:
-  - TIMEOUT_MINUTES=30 bun run src/main.ts
+  - TIMEOUT_MINUTES=30 bun start
 ```
 
 ### Need help?
