@@ -21,6 +21,22 @@ interface StreamEvent {
   data?: any;
   content?: string;
   tool?: any;
+  message?: {
+    id: string;
+    type: string;
+    role: string;
+    model: string;
+    content: Array<{
+      type: string;
+      text?: string;
+      name?: string;
+      id?: string;
+      input?: any;
+    }>;
+    stop_reason?: string | null;
+    usage?: any;
+  };
+  result?: string;
 }
 
 export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> {
@@ -167,32 +183,47 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
           logger.debug("Claude event:", event.type);
           
           // Handle different event types
-          if (event.type === "message" && event.content) {
-            currentContent += event.content;
-            
-            // Update PR comment with partial content
-            if (prId && config.bitbucketAccessToken) {
-              await updateCommentStream({
-                config,
-                prId,
-                commentId,
-                content: currentContent,
-                isPartial: true
-              });
+          if (event.type === "assistant" && event.message) {
+            // Handle assistant messages
+            const message = event.message;
+            if (message.content && Array.isArray(message.content)) {
+              for (const content of message.content) {
+                if (content.type === "text") {
+                  currentContent += content.text;
+                  logger.debug("Assistant text:", content.text);
+                  
+                  // Update PR comment with partial content
+                  if (prId && config.bitbucketAccessToken) {
+                    await updateCommentStream({
+                      config,
+                      prId,
+                      commentId,
+                      content: currentContent,
+                      isPartial: true
+                    });
+                  }
+                } else if (content.type === "tool_use") {
+                  logger.info(`Tool used: ${content.name || "unknown"}`);
+                  turns.push({
+                    role: "assistant",
+                    content: `Using tool: ${content.name}`,
+                    timestamp: new Date().toISOString(),
+                    tools: [content]
+                  });
+                }
+              }
             }
-          } else if (event.type === "tool_use") {
-            // Log tool usage
-            logger.info(`Tool used: ${event.tool?.name || "unknown"}`);
-            
-            // Add to conversation turns
-            turns.push({
-              role: "assistant",
-              content: `Using tool: ${event.tool?.name}`,
-              timestamp: new Date().toISOString(),
-              tools: [event.tool]
-            });
+          } else if (event.type === "result") {
+            // Final result
+            if (event.result) {
+              // The final result contains the complete output
+              if (!currentContent && event.result) {
+                currentContent = event.result;
+              }
+              logger.debug("Final result received");
+            }
           } else if (event.type === "completion") {
-            // Final completion
+            // Legacy completion format
             if (event.data?.content) {
               currentContent = event.data.content;
             }
