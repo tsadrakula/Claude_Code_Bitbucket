@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     }
 
     // Log summary
-    logger.success(`✅ Claude Code completed successfully`);
+    logger.success(`Claude Code completed successfully`);
     logger.info(`Total turns: ${result.turns.length}`);
     logger.info(`Execution time: ${result.executionTime}ms`);
     if (prepareResult.triggerSource) {
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
         await updateComment({
           config,
           prId: config.prId,
-          content: `## ❌ Error
+          content: `## Error
 
 An error occurred while processing your request:
 

@@ -13,7 +13,7 @@ export async function createTrackingComment(
   
   try {
     const api = new BitbucketAPI(config);
-    const content = `## 🤖 Claude Code Activated
+    const content = `## Claude Code Activated
 
 **Mode:** ${config.mode}
 **Model:** ${config.model}
@@ -39,16 +39,15 @@ export async function updateComment(options: {
 }): Promise<void> {
   const { config, prId, content, status } = options;
   
-  const statusEmoji = status === "success" ? "✅" : status === "error" ? "❌" : "⏱️";
-  const statusText = status === "success" ? "Completed" : status === "error" ? "Failed" : "Timed Out";
+  const statusText = status === "success" ? "[COMPLETED]" : status === "error" ? "[FAILED]" : "[TIMED OUT]";
   
   // Format the final response
-  const formattedContent = `## 🤖 Claude Response ${statusEmoji}
+  const formattedContent = `## Claude Response ${statusText}
 
 ${content}
 
 ---
-*Status: ${statusText}*`;
+*Status: ${status}*`;
   
   // Try to post to Bitbucket if we have the necessary config
   if (config?.bitbucketAccessToken && prId) {
@@ -68,11 +67,10 @@ ${content}
 }
 
 function outputToConsole(content: string, status: "success" | "error" | "timeout"): void {
-  const statusEmoji = status === "success" ? "✅" : status === "error" ? "❌" : "⏱️";
-  const statusText = status === "success" ? "Completed" : status === "error" ? "Failed" : "Timed Out";
+  const statusText = status === "success" ? "COMPLETED" : status === "error" ? "FAILED" : "TIMED OUT";
   
   logger.info(`=================================`);
-  logger.info(`Claude Code Result: ${statusEmoji} ${statusText}`);
+  logger.info(`Claude Code Result: ${statusText}`);
   logger.info(`=================================`);
   console.log(content);
   logger.info(`=================================`);
