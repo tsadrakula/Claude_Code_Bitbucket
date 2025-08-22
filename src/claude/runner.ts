@@ -351,6 +351,11 @@ function buildClaudeArgs(config: PipeConfig, prompt: string, mcpConfigFile?: str
     args.push("--model", config.model);
   }
   
+  // Add fallback model (for when primary model is overloaded)
+  if (config.fallbackModel) {
+    args.push("--fallback-model", config.fallbackModel);
+  }
+  
   // Add max turns
   if (config.maxTurns > 0) {
     args.push("--max-turns", config.maxTurns.toString());

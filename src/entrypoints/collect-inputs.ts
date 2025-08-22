@@ -29,7 +29,8 @@ export async function collectInputs(): Promise<PipeConfig> {
     bitbucketAccessToken: env.BITBUCKET_ACCESS_TOKEN,
     
     // Model settings
-    model: env.MODEL || "sonnet",
+    model: env.MODEL || "claude-4-0-sonnet-20250219",
+    fallbackModel: env.FALLBACK_MODEL || "claude-opus-4-1-20250805",
     maxTurns: env.MAX_TURNS ? parseInt(env.MAX_TURNS) : 30,
     timeoutMinutes: env.TIMEOUT_MINUTES ? parseInt(env.TIMEOUT_MINUTES) : 10,
     
