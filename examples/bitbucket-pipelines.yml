@@ -10,7 +10,8 @@
 # 4. Commit the file to enable pipelines
 # 5. Claude will respond to @claude mentions in PRs
 
-image: oven/bun:latest
+# Recommended: Use Atlassian's default image which has git pre-installed
+image: atlassian/default-image:4
 
 pipelines:
   # Automatic PR assistant - responds to @claude mentions
@@ -19,6 +20,10 @@ pipelines:
       - step:
           name: Claude PR Assistant
           script:
+            # Install Bun runtime
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
             - cd .claude-pipe
@@ -56,6 +61,10 @@ pipelines:
       - step:
           name: Run Claude Agent
           script:
+            # Install Bun runtime
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
             - cd .claude-pipe
@@ -81,6 +90,10 @@ pipelines:
       - step:
           name: Claude Security Audit
           script:
+            # Install Bun runtime
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
             - cd .claude-pipe
@@ -104,6 +117,10 @@ pipelines:
       - step:
           name: Claude Code Quality Review
           script:
+            # Install Bun runtime
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
             - cd .claude-pipe
@@ -128,6 +145,10 @@ pipelines:
           name: Weekly Maintenance
           trigger: manual  # Change to 'automatic' if you want scheduled runs
           script:
+            # Install Bun runtime
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            
             # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git .claude-pipe
             - cd .claude-pipe
@@ -146,12 +167,29 @@ pipelines:
           caches:
             - node
 
-# Optional: Define caches for faster builds
+# Alternative configurations for different Docker images:
+
+# Option 1: Using Node.js Alpine (lighter weight)
+# image: node:20-alpine
+# Then add to each step's script section:
+# - apk add --no-cache git bash curl
+# - npm install -g bun
+
+# Option 2: Using official Bun image (requires git installation)
+# image: oven/bun:latest  
+# Then add to each step's script section:
+# - apt-get update && apt-get install -y git
+
+# Option 3: Custom Docker image with everything pre-installed
+# image: your-workspace/claude-bitbucket:latest
+# No additional setup needed if image has git, bun, and dependencies
+
+# Define caches for faster builds
 definitions:
   caches:
     node: .claude-pipe/node_modules
 
-# Optional: Configure services
+# Configure services
 definitions:
   services:
     docker:

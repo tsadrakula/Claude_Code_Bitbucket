@@ -13,8 +13,12 @@ pipelines:
     '**':
       - step:
           name: Claude Code Assistant
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            # Install Bun
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - bun run src/main.ts
@@ -39,9 +43,9 @@ Now Claude will respond when you:
 
 ## 📦 Installation Options
 
-### Option 1: Direct Clone (Simplest)
+### Option 1: Atlassian Default Image (Recommended)
 
-Add to your `bitbucket-pipelines.yml`:
+The Atlassian default image has git and other tools pre-installed:
 
 ```yaml
 pipelines:
@@ -49,8 +53,12 @@ pipelines:
     '**':
       - step:
           name: Claude Code Assistant
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            # Install Bun
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
+            # Clone and setup Claude pipe
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe
             - bun install
@@ -60,7 +68,34 @@ pipelines:
             - docker
 ```
 
-### Option 2: Docker Image (Fastest)
+### Option 2: Node Alpine Image
+
+Lighter weight option with Node.js:
+
+```yaml
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Claude Code Assistant
+          image: node:20-alpine
+          script:
+            # Install required tools
+            - apk add --no-cache git bash
+            - npm install -g bun
+            # Clone and setup Claude pipe
+            - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
+            - cd claude-pipe
+            - bun install
+            - bun run build
+            - bun run src/main.ts
+          services:
+            - docker
+```
+
+### Option 3: Docker Image (Fastest)
+
+Pre-built Docker image:
 
 ```yaml
 pipelines:
@@ -73,7 +108,7 @@ pipelines:
             - /app/run.sh
 ```
 
-### Option 3: Custom Pipe (Advanced)
+### Option 4: Custom Pipe (Advanced)
 
 1. Fork this repository
 2. Customize as needed
@@ -120,8 +155,10 @@ pipelines:
     '**':
       - step:
           name: Automatic PR Review
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - MODE=experimental-review bun run src/main.ts
@@ -135,8 +172,10 @@ pipelines:
     claude-agent:
       - step:
           name: Claude Agent
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - MODE=agent TASK="Refactor authentication module" bun run src/main.ts
@@ -150,8 +189,10 @@ pipelines:
     '**':
       - step:
           name: Claude with Custom Trigger
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - TRIGGER_PHRASE="@ai-assist" bun run src/main.ts
@@ -226,8 +267,10 @@ pipelines:
     '**':
       - step:
           name: Claude via AWS Bedrock
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - |
@@ -246,8 +289,10 @@ pipelines:
     '**':
       - step:
           name: Claude via Google Vertex
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - |
@@ -267,8 +312,10 @@ pipelines:
     '**':
       - step:
           name: Claude PR Assistant
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - bun run src/main.ts
@@ -281,8 +328,10 @@ pipelines:
             default: "Analyze and improve code quality"
       - step:
           name: Claude Agent Task
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - MODE=agent TASK="$TASK" bun run src/main.ts
@@ -292,9 +341,11 @@ pipelines:
     main:
       - step:
           name: Weekly Code Review
-          image: oven/bun:latest
+          image: atlassian/default-image:4
           trigger: manual
           script:
+            - curl -fsSL https://bun.sh/install | bash
+            - export PATH="$HOME/.bun/bin:$PATH"
             - git clone https://github.com/tsadrakula/Claude_Code_Bitbucket.git claude-pipe
             - cd claude-pipe && bun install && bun run build
             - MODE=agent TASK="Review code for potential improvements" bun run src/main.ts
@@ -354,6 +405,17 @@ docker push your-registry/claude-bitbucket-pipe:latest
 1. Check the trigger phrase matches (default: `@claude`)
 2. Verify API key is set in repository variables
 3. Check pipeline logs: Repository → Pipelines → View logs
+
+### Git command not found?
+
+Use `atlassian/default-image:4` or install git:
+```yaml
+# For alpine images
+- apk add --no-cache git
+
+# For debian/ubuntu images
+- apt-get update && apt-get install -y git
+```
 
 ### Authentication errors?
 
