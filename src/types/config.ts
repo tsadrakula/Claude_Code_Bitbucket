@@ -53,6 +53,7 @@ export interface PrepareResult {
   prompt: string;
   commentId?: string;
   branch?: string;
+  triggerSource?: "description" | "comment" | "commit";
 }
 
 export interface BitbucketContext {

@@ -34,6 +34,8 @@ export async function prepare(config: PipeConfig): Promise<PrepareResult> {
       shouldRun: true,
       context,
       prompt: modeContext.prompt,
+      commentId: modeContext.commentId,
+      triggerSource: modeContext.triggerSource,
     };
   } catch (error) {
     logger.error("Failed to prepare context:", error);

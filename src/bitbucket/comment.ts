@@ -1,36 +1,79 @@
 import type { PipeConfig } from "../types/config";
+import { BitbucketAPI } from "./api";
 import { logger } from "../utils/logger";
 
 export async function createTrackingComment(
   config: PipeConfig, 
   prId: number
 ): Promise<string> {
-  // In simplified mode, we just log instead of creating actual comments
-  // The PR comment functionality requires API access which may not be available
+  if (!config.bitbucketAccessToken) {
+    logger.warning("No Bitbucket access token - cannot create tracking comment");
+    return `tracking-${Date.now()}`;
+  }
   
-  logger.info(`Would create tracking comment for PR ${prId}`);
-  logger.info(`Mode: ${config.mode}, Model: ${config.model}`);
-  
-  // Return a dummy ID since we're not actually creating comments
-  return `tracking-${Date.now()}`;
+  try {
+    const api = new BitbucketAPI(config);
+    const content = `## 🤖 Claude Code Activated
+
+**Mode:** ${config.mode}
+**Model:** ${config.model}
+**Trigger:** ${config.triggerPhrase}
+
+Claude is initializing...`;
+    
+    const comment = await api.createPullRequestComment(prId, content);
+    logger.info(`Created tracking comment: ${comment?.id}`);
+    return comment?.id || `tracking-${Date.now()}`;
+  } catch (error) {
+    logger.error("Failed to create tracking comment:", error);
+    return `tracking-${Date.now()}`;
+  }
 }
 
 export async function updateComment(options: {
-  commentId: string;
+  config?: PipeConfig;
+  prId?: number;
+  commentId?: string;
   content: string;
   status: "success" | "error" | "timeout";
 }): Promise<void> {
-  const { content, status } = options;
+  const { config, prId, content, status } = options;
   
+  const statusEmoji = status === "success" ? "✅" : status === "error" ? "❌" : "⏱️";
+  const statusText = status === "success" ? "Completed" : status === "error" ? "Failed" : "Timed Out";
+  
+  // Format the final response
+  const formattedContent = `## 🤖 Claude Response ${statusEmoji}
+
+${content}
+
+---
+*Status: ${statusText}*`;
+  
+  // Try to post to Bitbucket if we have the necessary config
+  if (config?.bitbucketAccessToken && prId) {
+    try {
+      const api = new BitbucketAPI(config);
+      await api.createPullRequestComment(prId, formattedContent);
+      logger.success("Posted Claude response to PR");
+    } catch (error) {
+      logger.error("Failed to post comment to PR:", error);
+      // Fall back to console output
+      outputToConsole(formattedContent, status);
+    }
+  } else {
+    // Output to console if no API access
+    outputToConsole(formattedContent, status);
+  }
+}
+
+function outputToConsole(content: string, status: "success" | "error" | "timeout"): void {
   const statusEmoji = status === "success" ? "✅" : status === "error" ? "❌" : "⏱️";
   const statusText = status === "success" ? "Completed" : status === "error" ? "Failed" : "Timed Out";
   
   logger.info(`=================================`);
   logger.info(`Claude Code Result: ${statusEmoji} ${statusText}`);
   logger.info(`=================================`);
-  logger.info(content);
+  console.log(content);
   logger.info(`=================================`);
-  
-  // In a real implementation with API access, this would update the PR comment
-  // For now, we just log the results
 }

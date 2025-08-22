@@ -29,7 +29,9 @@ pipelines:
 ### Add these Repository Variables:
 
 1. Go to **Repository settings** → **Repository variables**
-2. Add your API key (choose one):
+2. **REQUIRED for PR comments:**
+   - `BITBUCKET_ACCESS_TOKEN` - App password with PR read/write permissions ([Create here](https://bitbucket.org/account/settings/app-passwords/))
+3. Add your Claude API key (choose one):
    - `ANTHROPIC_API_KEY` - For Anthropic Claude API
    - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` - For AWS Bedrock
    - `GCP_PROJECT_ID` + `GCP_SERVICE_ACCOUNT_KEY` - For Google Vertex AI
@@ -199,6 +201,12 @@ pipelines:
 ```
 
 ## 📋 Environment Variables
+
+### Required for Full Functionality
+
+| Variable | Description |
+|----------|-------------|
+| `BITBUCKET_ACCESS_TOKEN` | **REQUIRED for PR comments** - Bitbucket app password with PR read/write |
 
 ### Required (Choose One Authentication Method)
 
