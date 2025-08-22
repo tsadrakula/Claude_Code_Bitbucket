@@ -46,18 +46,12 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
     // Prepare environment variables
     const env = prepareEnvironment(config);
     
-    // Set up MCP servers for Bitbucket operations
-    const mcpServers = createMcpServers(config);
-    if (mcpServers.length > 0) {
-      logger.info("MCP servers configured for Bitbucket operations");
-      // Write MCP config to file
-      const mcpConfigFile = join(tempDir, "mcp-config.json");
-      await writeFile(mcpConfigFile, JSON.stringify({ servers: mcpServers }, null, 2));
-      env.MCP_CONFIG_FILE = mcpConfigFile;
-    }
+    // MCP servers are not working with Claude CLI yet, skip for now
+    // TODO: Fix MCP server configuration format for Claude CLI
+    const mcpConfigFile: string | undefined = undefined;
     
     // Build Claude command arguments
-    const args = buildClaudeArgs(config, mcpServers.length > 0 ? join(tempDir, "mcp-config.json") : undefined);
+    const args = buildClaudeArgs(config, mcpConfigFile);
     
     logger.info(`Executing Claude Code with model: ${config.model}`);
     logger.debug(`Command: claude ${args.join(" ")}`);
@@ -68,7 +62,7 @@ export async function runClaudeCode(options: RunOptions): Promise<ClaudeResult> 
         config,
         prId,
         commentId,
-        content: "🤖 Claude is responding...\n\n",
+        content: "",  // Start with empty content, the formatter will add the prefix
         isPartial: true
       });
     }
